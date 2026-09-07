@@ -78,12 +78,35 @@ function luu(){
  document.querySelector('#luu').textContent='Đã lưu '+new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
  henDongBoCloud();
 }
+
+const TY_LE_KHUNG_HINH=[
+  ['9:16','Dọc — TikTok / Reels / Shorts'],
+  ['16:9','Ngang — YouTube / TV'],
+  ['1:1','Vuông — Social'],
+  ['4:5','Dọc — Instagram / Facebook Feed'],
+  ['3:4','Dọc — Ảnh truyền thống'],
+  ['2:3','Dọc — Poster / chân dung'],
+  ['3:2','Ngang — Ảnh / điện ảnh'],
+  ['4:3','Ngang — TV / truyền thống'],
+  ['5:4','Ngang — Ảnh / in ấn'],
+  ['21:9','Siêu rộng — Cinematic'],
+  ['2.39:1','CinemaScope'],
+  ['2.35:1','Cinematic rộng']
+];
+function optionTiLe(v){return TY_LE_KHUNG_HINH.map(x=>`<option value="${x[0]}" ${v===x[0]?'selected':''}>${x[0]} · ${x[1]}</option>`).join('')}
+function tiLeAnhDangChon(){let el=document.querySelector('#tiLeAnh');return el?.value||P.hinhAnh?.tiLeMacDinh||P.tiLe||'9:16'}
+function doiTiLeAnh(){
+  let v=tiLeAnhDangChon();
+  P.hinhAnh=P.hinhAnh||{};P.hinhAnh.tiLeMacDinh=v;luu();
+  let ref=document.querySelector('#refAnh')?.value||'';
+  if(ref)document.querySelector('#promptAnh').value=goiYTaoAnh(document.querySelector('#loaiAnh').value,ref,v);
+}
 function nav(){let ds=[['tong_quan','Tổng quan'],['online_team','Online Team'],['team_control','Phân công & khóa cảnh'],['loai_phim','Loại phim & mẫu sản xuất'],['story','Kịch bản & chia cảnh'],['canh','Đạo diễn cảnh'],['hinh_anh','Studio tạo hình ảnh'],['khoa_anh','Khóa hình ảnh & Continuity'],['voice','Giọng nói & lời thoại'],['san_xuat','Sản xuất hàng loạt'],['bang','Bảng sản xuất'],['xuat','Xuất dự án']];document.querySelector('#nav').innerHTML=ds.map(x=>`<button class="${trang===x[0]?'active':''}" onclick="den('${x[0]}')">${x[1]}</button>`).join('')}
 function den(x){trang=x;nav();ve()}
 function truong(lbl,val,on,area=false){return `<label>${lbl}</label>${area?`<textarea onchange="${on}">${e(val||'')}</textarea>`:`<input value="${e(val||'')}" onchange="${on}">`}`}
 function ve(){luu();if(trang==='tong_quan')tongQuan();if(trang==='online_team')onlineTeam();if(trang==='team_control')teamControl();if(trang==='loai_phim')loaiPhim();if(trang==='story')story();if(trang==='canh')daoDien();if(trang==='hinh_anh')studioHinhAnh();if(trang==='khoa_anh')khoaAnhContinuity();if(trang==='voice')voiceDirector();if(trang==='san_xuat')sanXuatLo();if(trang==='bang')bangSanXuat();if(trang==='xuat')trangXuat()}
 function tongQuan(){let m=MAU_PHIM.find(x=>x.id===P.theLoai)||MAU_PHIM[0],tong=P.canh.length,ss=P.canh.filter(x=>x.trangThai==='SẴN SÀNG').length,duyet=P.canh.filter(x=>x.trangThai==='ĐÃ DUYỆT').length;noiDung.innerHTML=`<h2>Tổng quan dự án</h2><div class="grid g4"><div class=card><h3>${e(P.ten)}</h3><span class=muted>${e(m.ten)}</span></div><div class=card><h3>${tong}</h3><span class=muted>Tổng số cảnh</span></div><div class=card><h3>${ss}</h3><span class=muted>Sẵn sàng sản xuất</span></div><div class=card><h3>${duyet}</h3><span class=muted>Đã duyệt</span></div></div><div class=card style="margin-top:12px"><h3>Pipeline</h3>Chọn loại phim → Kịch bản → Chia cảnh → Tạo hình ảnh → Khóa ảnh → Giọng nói & lời thoại → Keyframe → Continuity → Sản xuất hàng loạt → Duyệt → Xuất<br><br><span class=good>✓ Toàn bộ giao diện dùng tiếng Việt</span></div>`}
-function loaiPhim(){let m=MAU_PHIM.find(x=>x.id===P.theLoai)||MAU_PHIM[0];noiDung.innerHTML=`<h2>Loại phim & mẫu sản xuất</h2><div class=card><div class="grid g3">${MAU_PHIM.map(x=>`<div class="template ${P.theLoai===x.id?'sel':''}" onclick="chonMau('${x.id}')"><b>${e(x.ten)}</b><p class=muted>${e(x.moTa)}</p><span class=pill>${x.canh} cảnh gợi ý</span></div>`).join('')}</div></div><div class=card style="margin-top:12px"><h3>Cấu hình hiện tại</h3><div class="grid g3">${truong('Tên dự án',P.ten,`P.ten=this.value;luu()`)}<div><label>Tỷ lệ khung hình</label><select onchange="P.tiLe=this.value;luu()"><option ${P.tiLe==='9:16'?'selected':''}>9:16</option><option ${P.tiLe==='16:9'?'selected':''}>16:9</option><option ${P.tiLe==='1:1'?'selected':''}>1:1</option></select></div>${truong('Thời lượng mỗi cảnh (giây)',P.thoiLuongCanh,`P.thoiLuongCanh=+this.value;luu()`)}${truong('Số cảnh mục tiêu',P.soCanhMucTieu,`P.soCanhMucTieu=+this.value;luu()`)}${truong('Ngôn ngữ',P.ngonNgu,`P.ngonNgu=this.value;luu()`)}<div><label>Chế độ sản xuất</label><select onchange="P.cheDoLo=this.value;luu()"><option value="theo_chuoi" ${P.cheDoLo==='theo_chuoi'?'selected':''}>Theo chuỗi continuity</option><option value="song_song" ${P.cheDoLo==='song_song'?'selected':''}>Song song cảnh độc lập</option><option value="ket_hop" ${P.cheDoLo==='ket_hop'?'selected':''}>Kết hợp thông minh</option></select></div></div><div class=notice style="margin-top:12px"><b>Phong cách gợi ý:</b> ${e(m.camera)} · <b>Âm nhạc:</b> ${e(m.nhac)}</div></div>`}
+function loaiPhim(){let m=MAU_PHIM.find(x=>x.id===P.theLoai)||MAU_PHIM[0];noiDung.innerHTML=`<h2>Loại phim & mẫu sản xuất</h2><div class=card><div class="grid g3">${MAU_PHIM.map(x=>`<div class="template ${P.theLoai===x.id?'sel':''}" onclick="chonMau('${x.id}')"><b>${e(x.ten)}</b><p class=muted>${e(x.moTa)}</p><span class=pill>${x.canh} cảnh gợi ý</span></div>`).join('')}</div></div><div class=card style="margin-top:12px"><h3>Cấu hình hiện tại</h3><div class="grid g3">${truong('Tên dự án',P.ten,`P.ten=this.value;luu()`)}<div><label>Tỷ lệ khung hình</label><select onchange="P.tiLe=this.value;P.hinhAnh=P.hinhAnh||{};P.hinhAnh.tiLeMacDinh=this.value;luu()">${optionTiLe(P.tiLe)}</select></div>${truong('Thời lượng mỗi cảnh (giây)',P.thoiLuongCanh,`P.thoiLuongCanh=+this.value;luu()`)}${truong('Số cảnh mục tiêu',P.soCanhMucTieu,`P.soCanhMucTieu=+this.value;luu()`)}${truong('Ngôn ngữ',P.ngonNgu,`P.ngonNgu=this.value;luu()`)}<div><label>Chế độ sản xuất</label><select onchange="P.cheDoLo=this.value;luu()"><option value="theo_chuoi" ${P.cheDoLo==='theo_chuoi'?'selected':''}>Theo chuỗi continuity</option><option value="song_song" ${P.cheDoLo==='song_song'?'selected':''}>Song song cảnh độc lập</option><option value="ket_hop" ${P.cheDoLo==='ket_hop'?'selected':''}>Kết hợp thông minh</option></select></div></div><div class=notice style="margin-top:12px"><b>Phong cách gợi ý:</b> ${e(m.camera)} · <b>Âm nhạc:</b> ${e(m.nhac)}</div></div>`}
 function chonMau(id){let m=MAU_PHIM.find(x=>x.id===id);P.theLoai=id;P.soCanhMucTieu=m.canh;if(id==='quang_cao'||id==='san_pham')P.thoiLuongCanh=8;if(id==='mang_xa_hoi')P.tiLe='9:16';luu();ve()}
 function tach(txt){return txt.split(/\n+|(?<=[.!?])\s+/).map(x=>x.trim()).filter(x=>x.length>8)}
 function trangThaiMacDinh(){return {viTri:'',chuThe:'',camXuc:'trung tính'}}
@@ -99,27 +122,28 @@ function kiemTra(i){if(i===0)return {diem:100,loi:[]};let a=P.canh[i-1].end,b=P.
 function keThua(){if(chon===0)return;P.canh[chon].start=sao(P.canh[chon-1].end);ve()}
 function taoPrompt(){let s=P.canh[chon],m=MAU_PHIM.find(x=>x.id===P.theLoai)||MAU_PHIM[0];let p=`CẢNH ${s.id} — ${s.tieuDe}\n\nLOẠI PHIM\n${m.ten}\n\nMỤC ĐÍCH\n${s.mucDich}\n\nNGUYÊN NHÂN\n${s.nguyenNhan}\n\nMỘT HÀNH ĐỘNG CHÍNH\n${s.hanhDong}\n\nLỜI THOẠI\n${s.loiThoai||'Không có lời thoại.'}\n\nDIỄN XUẤT\n${s.dienXuat}\n\nMÁY QUAY\n${s.camera}\n\nÂM THANH\n${s.amThanh}\n\nBẮT BUỘC GIỮ LIÊN TỤC\nGiữ nguyên nhận diện nhân vật, trang phục, bố cục bối cảnh, đạo cụ và trạng thái liên tục. Không tự ý đổi trạng thái nếu không có sự kiện giải thích.`;document.querySelector('#promptBox').innerHTML=`<label>Câu lệnh đã biên dịch</label><pre>${e(p)}</pre>`}
 
-function goiYTaoAnh(loai,ref){
+function goiYTaoAnh(loai,ref,tiLe){
+  tiLe=tiLe||P.hinhAnh?.tiLeMacDinh||P.tiLe||'9:16';
   let phong=(MAU_PHIM.find(x=>x.id===P.theLoai)||MAU_PHIM[0]);
   if(loai==='nhan_vat'){
     let a=P.taiSan.nhanVat.find(x=>x.id===ref)||P.taiSan.nhanVat[0];
-    return `Ảnh nhân vật toàn thân, chỉ một nhân vật, nền trong suốt hoặc nền trơn, không môi trường. ${a?.ten||''}. ${a?.moTa||''}. Phong cách ${phong.camera}. Tỷ lệ ${P.tiLe}. Giữ khuôn mặt, tóc, vóc dáng và nhận diện ổn định để dùng làm ảnh tham chiếu xuyên suốt phim.`;
+    return `Ảnh nhân vật toàn thân, chỉ một nhân vật, nền trong suốt hoặc nền trơn, không môi trường. ${a?.ten||''}. ${a?.moTa||''}. Phong cách ${phong.camera}. Tỷ lệ ${tiLe}. Giữ khuôn mặt, tóc, vóc dáng và nhận diện ổn định để dùng làm ảnh tham chiếu xuyên suốt phim.`;
   }
   if(loai==='boi_canh'){
     let a=P.taiSan.boiCanh.find(x=>x.id===ref)||P.taiSan.boiCanh[0];
-    return `Ảnh bối cảnh không có nhân vật. ${a?.ten||''}. ${a?.moTa||''}. Bố cục rõ ràng, các vật thể neo cố định, ánh sáng điện ảnh phù hợp thể loại ${phong.ten}. Tỷ lệ ${P.tiLe}.`;
+    return `Ảnh bối cảnh không có nhân vật. ${a?.ten||''}. ${a?.moTa||''}. Bố cục rõ ràng, các vật thể neo cố định, ánh sáng điện ảnh phù hợp thể loại ${phong.ten}. Tỷ lệ ${tiLe}.`;
   }
   if(loai==='trang_phuc'){
     let a=P.taiSan.trangPhuc.find(x=>x.id===ref)||P.taiSan.trangPhuc[0];
-    return `Ảnh tham chiếu trang phục, chỉ nhân vật mặc trang phục này, nền trơn, không môi trường. ${a?.ten||''}. ${a?.moTa||''}. Toàn thân, chính diện, ánh sáng trung tính, dùng để khóa outfit.`;
+    return `Ảnh tham chiếu trang phục, chỉ nhân vật mặc trang phục này, nền trơn, không môi trường. ${a?.ten||''}. ${a?.moTa||''}. Toàn thân, chính diện, ánh sáng trung tính, dùng để khóa outfit. Tỷ lệ ${tiLe}.`;
   }
   if(loai==='dao_cu'){
     let a=P.taiSan.daoCu.find(x=>x.id===ref)||P.taiSan.daoCu[0];
-    return `Ảnh đạo cụ tham chiếu, một vật thể duy nhất, nền trơn, không người. ${a?.ten||''}. ${a?.moTa||''}. Góc nhìn rõ hình dáng, màu sắc và chi tiết nhận diện.`;
+    return `Ảnh đạo cụ tham chiếu, một vật thể duy nhất, nền trơn, không người. ${a?.ten||''}. ${a?.moTa||''}. Góc nhìn rõ hình dáng, màu sắc và chi tiết nhận diện. Tỷ lệ ${tiLe}.`;
   }
   if(loai==='keyframe'){
     let s=P.canh.find(x=>x.id===ref)||P.canh[chon]||P.canh[0];
-    return `Ảnh keyframe điện ảnh cho ${s?.id||''} — ${s?.tieuDe||''}. ${s?.hanhDong||''}. Diễn xuất: ${s?.dienXuat||''}. Máy quay: ${s?.camera||''}. Giữ đúng nhân vật, trang phục, bối cảnh và đạo cụ theo continuity. Không thêm nhân vật hoặc vật thể ngoài kế hoạch. Tỷ lệ ${P.tiLe}.`;
+    return `Ảnh keyframe điện ảnh cho ${s?.id||''} — ${s?.tieuDe||''}. ${s?.hanhDong||''}. Diễn xuất: ${s?.dienXuat||''}. Máy quay: ${s?.camera||''}. Giữ đúng nhân vật, trang phục, bối cảnh và đạo cụ theo continuity. Không thêm nhân vật hoặc vật thể ngoài kế hoạch. Tỷ lệ ${tiLe}.`;
   }
   return '';
 }
@@ -127,10 +151,13 @@ function themVaoHangDoiAnh(){
   let loai=document.querySelector('#loaiAnh').value;
   let ref=document.querySelector('#refAnh').value;
   let prompt=document.querySelector('#promptAnh').value.trim();
+  if(!ref)return alert('Hãy chọn Đối tượng / cảnh trước khi tạo tác vụ ảnh.');
   if(!prompt)return alert('Chưa có câu lệnh hình ảnh.');
   let id='IMG_'+String((P.hinhAnh?.hangDoi?.length||0)+1).padStart(3,'0');
   P.hinhAnh=P.hinhAnh||{cheDo:'ngoai_tuyen',nhaCungCap:'Chưa kết nối',tiLeMacDinh:P.tiLe,hangDoi:[]};
-  P.hinhAnh.hangDoi.push({id,loai,ref,prompt,trangThai:'CHỜ TẠO',anhData:'',ghiChu:'',createdAt:new Date().toISOString()});
+  let tiLe=tiLeAnhDangChon();
+  P.hinhAnh.tiLeMacDinh=tiLe;
+  P.hinhAnh.hangDoi.push({id,loai,ref,tiLe,prompt,trangThai:'CHỜ TẠO',anhData:'',ghiChu:'',createdAt:new Date().toISOString()});
   luu();ve();
 }
 function capNhatPromptAnh(){
@@ -142,11 +169,13 @@ function capNhatPromptAnh(){
   if(loai==='trang_phuc')ds=P.taiSan.trangPhuc.map(x=>[x.id,x.ten]);
   if(loai==='dao_cu')ds=P.taiSan.daoCu.map(x=>[x.id,x.ten]);
   if(loai==='keyframe')ds=P.canh.map(x=>[x.id,`${x.id} · ${x.tieuDe}`]);
-  sel.innerHTML=ds.map(x=>`<option value="${x[0]}">${e(x[1])}</option>`).join('');
-  document.querySelector('#promptAnh').value=goiYTaoAnh(loai,ds[0]?.[0]||'');
+  sel.innerHTML=`<option value="">— Chọn đối tượng / cảnh —</option>`+ds.map(x=>`<option value="${x[0]}">${e(x[1])}</option>`).join('');
+  sel.value='';
+  document.querySelector('#promptAnh').value='';
 }
 function doiRefAnh(){
-  document.querySelector('#promptAnh').value=goiYTaoAnh(document.querySelector('#loaiAnh').value,document.querySelector('#refAnh').value);
+  let ref=document.querySelector('#refAnh').value;
+  document.querySelector('#promptAnh').value=ref?goiYTaoAnh(document.querySelector('#loaiAnh').value,ref,tiLeAnhDangChon()):'';
 }
 function taiAnhMau(i,ev){
   let f=ev.target.files[0]; if(!f)return;
@@ -177,13 +206,16 @@ function taoHangLoatKeyframe(){
   for(let s of P.canh){
     if(existing.has(s.id))continue;
     let id='IMG_'+String(P.hinhAnh.hangDoi.length+1).padStart(3,'0');
-    P.hinhAnh.hangDoi.push({id,loai:'keyframe',ref:s.id,prompt:goiYTaoAnh('keyframe',s.id),trangThai:'CHỜ TẠO',anhData:'',ghiChu:'',createdAt:new Date().toISOString()});
+    let tiLe=P.hinhAnh.tiLeMacDinh||P.tiLe||'9:16';
+    P.hinhAnh.hangDoi.push({id,loai:'keyframe',ref:s.id,tiLe,prompt:goiYTaoAnh('keyframe',s.id,tiLe),trangThai:'CHỜ TẠO',anhData:'',ghiChu:'',createdAt:new Date().toISOString()});
   }
   luu();ve();
 }
 function studioHinhAnh(){
   P.hinhAnh=P.hinhAnh||{cheDo:'ngoai_tuyen',nhaCungCap:'Chưa kết nối',tiLeMacDinh:P.tiLe,hangDoi:[]};
   let q=P.hinhAnh.hangDoi||[];
+  P.hinhAnh.tiLeMacDinh=P.hinhAnh.tiLeMacDinh||P.tiLe||'9:16';
+  q.forEach(x=>{if(!x.tiLe)x.tiLe=P.hinhAnh.tiLeMacDinh});
   noiDung.innerHTML=`<h2>Studio tạo hình ảnh</h2>
   <div class="grid g3">
     <div class=card><h3>${q.length}</h3><span class=muted>Tổng tác vụ ảnh</span></div>
@@ -201,7 +233,7 @@ function studioHinhAnh(){
         <option value=keyframe>Ảnh keyframe cảnh</option>
       </select></div>
       <div><label>Đối tượng / cảnh</label><select id=refAnh onchange="doiRefAnh()"></select></div>
-      <div><label>Tỷ lệ</label><input value="${e(P.tiLe)}" disabled></div>
+      <div><label>Tỷ lệ khung hình ảnh</label><select id=tiLeAnh onchange="doiTiLeAnh()">${optionTiLe(P.hinhAnh?.tiLeMacDinh||P.tiLe)}</select></div>
     </div>
     <label>Câu lệnh tạo hình ảnh</label>
     <textarea id=promptAnh style="min-height:180px"></textarea>
@@ -214,7 +246,7 @@ function studioHinhAnh(){
   <div class=card style="margin-top:12px">
     <h3>Hàng đợi hình ảnh</h3>
     ${q.length?q.map((x,i)=>`<div class=state-card>
-      <div class=row><b>${e(x.id)}</b><span class=pill>${e(x.trangThai)}</span><span class=muted>${e(x.loai)} · ${e(x.ref)}</span></div>
+      <div class=row><b>${e(x.id)}</b><span class=pill>${e(x.trangThai)}</span><span class=muted>${e(x.loai)} · ${e(x.ref)} · Tỷ lệ ${e(x.tiLe||P.hinhAnh?.tiLeMacDinh||P.tiLe)}</span></div>
       ${x.anhData?`<img src="${x.anhData}" style="max-width:180px;max-height:240px;border-radius:8px;border:1px solid var(--line);margin:10px 0;object-fit:cover">`:''}
       <pre>${e(x.prompt)}</pre>
       <div class=toolbar>
