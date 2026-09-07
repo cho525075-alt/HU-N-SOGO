@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Continuity Director Flow Bridge",
+  "version": "1.0.0",
+  "description": "Hỗ trợ dán prompt và kích hoạt tạo trên Google Flow trong phiên đăng nhập hiện tại. Không đọc cookie/session.",
+  "permissions": ["clipboardRead", "storage"],
+  "host_permissions": ["https://labs.google/*", "https://flow.google/*"],
+  "content_scripts": [{
+    "matches": ["https://labs.google/*", "https://flow.google/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}
