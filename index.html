@@ -157,7 +157,7 @@ function themVaoHangDoiAnh(){
   P.hinhAnh=P.hinhAnh||{cheDo:'online_ai',nhaCungCap:'Multi Provider',nhaCungCapMacDinh:'google',tiLeMacDinh:P.tiLe,hangDoi:[]};
   let tiLe=tiLeAnhDangChon();
   P.hinhAnh.tiLeMacDinh=tiLe;
-  P.hinhAnh.hangDoi.push({id,loai,ref,tiLe,prompt,provider:nhaCungCapAnhDangChon(),modelChon:modelAnhDangChon(),chatLuong:chatLuongAnhDangChon(),nen:nenAnhDangChon(),trangThai:'CHỜ TẠO',anhData:'',ghiChu:'',loi:'',createdAt:new Date().toISOString()});
+  P.hinhAnh.hangDoi.push({id,loai,ref,tiLe,prompt,provider:nhaCungCapAnhDangChon(),modelChon:modelAnhDangChon(),cheDo:cheDoAnhDangChon(),fallback:choPhepFallbackAnh(),chatLuong:chatLuongAnhDangChon(),nen:nenAnhDangChon(),trangThai:'CHỜ TẠO',anhData:'',ghiChu:'',loi:'',createdAt:new Date().toISOString()});
   luu();ve();
 }
 function capNhatPromptAnh(){
@@ -225,8 +225,30 @@ async function kiemTraImageAPI(){
   if(trang==='hinh_anh') ve();
 }
 
+function cheDoAnhDangChon(){
+  return document.querySelector('#cheDoAnh')?.value||P.hinhAnh?.cheDoChiPhi||'balanced';
+}
+function choPhepFallbackAnh(){
+  return document.querySelector('#fallbackAnh')?.checked ?? (P.hinhAnh?.fallback!==false);
+}
+function luuCauHinhAnh(){
+  P.hinhAnh=P.hinhAnh||{};
+  P.hinhAnh.nhaCungCapMacDinh=nhaCungCapAnhDangChon();
+  P.hinhAnh.cheDoChiPhi=cheDoAnhDangChon();
+  P.hinhAnh.fallback=choPhepFallbackAnh();
+  P.hinhAnh.tiLeMacDinh=tiLeAnhDangChon();
+  luu();
+}
+function moTaRouterAnh(){
+  const p=nhaCungCapAnhDangChon();
+  if(p==='auto'){
+    const ds=[]; if(IMAGE_PROVIDERS.google)ds.push('Gemini'); if(IMAGE_PROVIDERS.openai)ds.push('GPT');
+    return ds.length?'Tự động ưu tiên Gemini → GPT khi cần. Đang có: '+ds.join(' + '):'Chưa có provider nào kết nối.';
+  }
+  return p==='google'?'Dùng Gemini Image. Có thể chuyển GPT khi lỗi nếu bật dự phòng.':'Dùng GPT Image. Có thể chuyển Gemini khi lỗi nếu bật dự phòng.';
+}
 function nhaCungCapAnhDangChon(){
-  return document.querySelector('#nhaCungCapAnh')?.value||P.hinhAnh?.nhaCungCapMacDinh||'google';
+  return document.querySelector('#nhaCungCapAnh')?.value||P.hinhAnh?.nhaCungCapMacDinh||'auto';
 }
 function modelAnhDangChon(){
   return document.querySelector('#modelAnh')?.value||'auto';
@@ -236,10 +258,14 @@ function capNhatModelAnh(){
   const el=document.querySelector('#modelAnh');
   if(!el)return;
   if(provider==='google'){
-    el.innerHTML='<option value="auto">Tự động · khuyên dùng</option><option value="gemini-3.1-flash-lite-image">Nano Banana 2 Lite · tiết kiệm</option><option value="gemini-3.1-flash-image">Nano Banana 2 · cân bằng</option><option value="gemini-3-pro-image">Nano Banana Pro · cao cấp</option>';
+    el.innerHTML='<option value="auto">Theo chế độ thông minh</option><option value="gemini-3.1-flash-lite-image">Nano Banana 2 Lite · tiết kiệm</option><option value="gemini-3.1-flash-image">Nano Banana 2 · cân bằng</option><option value="gemini-3-pro-image">Nano Banana Pro · cao cấp</option>';
+  }else if(provider==='openai'){
+    el.innerHTML='<option value="auto">Theo chế độ thông minh</option><option value="gpt-image-2">GPT Image 2</option><option value="gpt-image-1-mini">GPT Image 1 Mini · tiết kiệm</option>';
   }else{
-    el.innerHTML='<option value="auto">Tự động</option><option value="gpt-image-2">GPT Image 2</option><option value="gpt-image-1-mini">GPT Image 1 Mini · tiết kiệm</option>';
+    el.innerHTML='<option value="auto">Tự chọn model theo provider + chế độ</option>';
   }
+  const note=document.querySelector('#routerAnhNote'); if(note)note.textContent=moTaRouterAnh();
+  luuCauHinhAnh();
 }
 function chatLuongAnhDangChon(){
   return document.querySelector('#chatLuongAnh')?.value||'medium';
@@ -264,7 +290,9 @@ async function taoAnhAI(i){
         quality:j.chatLuong||'medium',
         background:j.nen||'auto',
         provider:j.provider||nhaCungCapAnhDangChon(),
-        model:j.modelChon||modelAnhDangChon()
+        model:j.modelChon||modelAnhDangChon(),
+        mode:j.cheDo||cheDoAnhDangChon(),
+        fallback:(j.fallback!==undefined?j.fallback:choPhepFallbackAnh())
       })
     });
     const data=await r.json();
@@ -274,6 +302,8 @@ async function taoAnhAI(i){
     j.model=data.model||'';
     j.provider=data.provider||j.provider||'';
     j.size=data.size||data.aspectRatio||'';
+    j.fallbackUsed=!!data.fallbackUsed;
+    j.attempts=data.attempts||[];
     j.generatedAt=new Date().toISOString();
     j.loi='';
     luu();ve();
@@ -301,7 +331,9 @@ function themVaTaoNgay(){
     P.hinhAnh.hangDoi[i].nen=nenAnhDangChon();
     P.hinhAnh.hangDoi[i].provider=nhaCungCapAnhDangChon();
     P.hinhAnh.hangDoi[i].modelChon=modelAnhDangChon();
-    luu();
+    P.hinhAnh.hangDoi[i].cheDo=cheDoAnhDangChon();
+    P.hinhAnh.hangDoi[i].fallback=choPhepFallbackAnh();
+    luuCauHinhAnh();
     taoAnhAI(i);
   }
 }
@@ -330,14 +362,17 @@ function studioHinhAnh(){
       <div><label>Đối tượng / cảnh</label><select id=refAnh onchange="doiRefAnh()"></select></div>
       <div><label>Tỷ lệ khung hình ảnh</label><select id=tiLeAnh onchange="doiTiLeAnh()">${optionTiLe(P.hinhAnh?.tiLeMacDinh||P.tiLe)}</select></div>
     </div>
-    <div class="grid g2" style="margin-top:10px">
-      <div><label>Nhà cung cấp AI</label><select id=nhaCungCapAnh onchange="capNhatModelAnh()"><option value=google>Google Gemini Image</option><option value=openai>OpenAI GPT Image</option></select></div>
+    <div class="grid g3" style="margin-top:10px">
+      <div><label>Nhà cung cấp AI</label><select id=nhaCungCapAnh onchange="capNhatModelAnh()"><option value=auto>⚡ Tự động GPT / Gemini</option><option value=google>Google Gemini Image</option><option value=openai>OpenAI GPT Image</option></select></div>
+      <div><label>Chế độ tối ưu</label><select id=cheDoAnh onchange="luuCauHinhAnh()"><option value=economy>💰 Tiết kiệm</option><option value=balanced selected>⚖️ Cân bằng</option><option value=quality>🎬 Chất lượng cao</option></select></div>
       <div><label>Model ảnh</label><select id=modelAnh></select></div>
     </div>
-    <div class="grid g2" style="margin-top:10px">
+    <div class="grid g3" style="margin-top:10px">
       <div><label>Chất lượng AI</label><select id=chatLuongAnh><option value=low>Thấp · nhanh/tiết kiệm</option><option value=medium selected>Trung bình</option><option value=high>Cao</option></select></div>
       <div><label>Nền ảnh</label><select id=nenAnh><option value=auto>Tự động</option><option value=transparent>Trong suốt</option><option value=opaque>Nền kín</option></select></div>
+      <div><label>Dự phòng khi provider lỗi</label><div style="padding:10px 0"><label style="display:flex;gap:8px;align-items:center"><input id=fallbackAnh type=checkbox checked onchange="luuCauHinhAnh()"> Tự chuyển GPT ↔ Gemini</label></div></div>
     </div>
+    <div id=routerAnhNote class=notice style="margin-top:8px"></div>
     <label>Câu lệnh tạo hình ảnh</label>
     <textarea id=promptAnh style="min-height:180px"></textarea>
     <div class=toolbar>
@@ -346,7 +381,7 @@ function studioHinhAnh(){
       <button onclick="taoHangLoatKeyframe()">Tạo tác vụ keyframe cho toàn bộ cảnh</button>
       <button onclick="taoTatCaAnhCho()">⚡ Tạo toàn bộ ảnh đang chờ</button>
     </div>
-    <div class=notice><b>Trạng thái AI hình ảnh:</b> Google ${IMAGE_PROVIDERS.google?'<span class=good>ĐÃ KẾT NỐI</span>':'<span class=warn>CHƯA KẾT NỐI</span>'} · OpenAI ${IMAGE_PROVIDERS.openai?'<span class=good>ĐÃ KẾT NỐI</span>':'<span class=warn>CHƯA KẾT NỐI</span>'}. API key chỉ nằm trên Vercel server.</div>
+    <div class=notice><b>Image Router:</b> Gemini ${IMAGE_PROVIDERS.google?'<span class=good>SẴN SÀNG</span>':'<span class=warn>CHƯA CÓ KEY</span>'} · GPT ${IMAGE_PROVIDERS.openai?'<span class=good>SẴN SÀNG</span>':'<span class=warn>CHƯA CÓ KEY</span>'}. Chế độ Tự động chỉ gọi provider đang có key; nếu provider bị từ chối/quota và bật dự phòng, hệ thống thử provider còn lại. API key chỉ nằm trên Vercel server.</div>
   </div>
   <div class=card style="margin-top:12px">
     <h3>Hàng đợi hình ảnh</h3>
@@ -355,7 +390,7 @@ function studioHinhAnh(){
       ${x.anhData?`<img src="${x.anhData}" style="max-width:180px;max-height:240px;border-radius:8px;border:1px solid var(--line);margin:10px 0;object-fit:cover">`:''}
       <pre>${e(x.prompt)}</pre>
       ${x.loi?`<div class="state-card bad">Lỗi: ${e(x.loi)}</div>`:''}
-      ${x.model?`<div class=muted>AI: ${e(x.provider||'')} · ${e(x.model)}${x.size?' · '+e(x.size):''}</div>`:''}
+      ${x.model?`<div class=muted>AI: ${e(x.provider||'')} · ${e(x.model)}${x.size?' · '+e(x.size):''}${x.fallbackUsed?' · <b>đã dùng provider dự phòng</b>':''}</div>`:''}
       <div class=toolbar>
         <button onclick="saoChepPrompt(${i})">Sao chép câu lệnh</button>
         <button class=btn onclick="taoAnhAI(${i})">${x.trangThai==='ĐANG TẠO'?'Đang tạo...':'✨ Tạo ảnh AI'}</button>
@@ -366,7 +401,12 @@ function studioHinhAnh(){
       </div>
     </div>`).join(''):'<span class=muted>Chưa có tác vụ hình ảnh.</span>'}
   </div>`;
-  setTimeout(()=>{capNhatPromptAnh();capNhatModelAnh()},0);
+  setTimeout(()=>{
+    const pr=document.querySelector('#nhaCungCapAnh'); if(pr)pr.value=P.hinhAnh?.nhaCungCapMacDinh||'auto';
+    const cm=document.querySelector('#cheDoAnh'); if(cm)cm.value=P.hinhAnh?.cheDoChiPhi||'balanced';
+    const fb=document.querySelector('#fallbackAnh'); if(fb)fb.checked=P.hinhAnh?.fallback!==false;
+    capNhatPromptAnh();capNhatModelAnh();
+  },0);
 }
 
 function damBaoCauTrucAnh(){
@@ -376,7 +416,9 @@ function damBaoCauTrucAnh(){
 }
 function anhDaDuyetTheo(loai,ref){
   damBaoCauTrucAnh();
-  return P.hinhAnh.hangDoi.filter(x=>x.loai===loai && x.ref===ref && x.trangThai==='ĐÃ DUYỆT' && x.anhData);
+  const rev={nhanVat:'nhan_vat',boiCanh:'boi_canh',trangPhuc:'trang_phuc',daoCu:'dao_cu',keyframe:'keyframe'};
+  const jobLoai=rev[loai]||loai;
+  return P.hinhAnh.hangDoi.filter(x=>x.loai===jobLoai && x.ref===ref && x.trangThai==='ĐÃ DUYỆT' && x.anhData);
 }
 function khoaAnh(loai,ref,jobId){
   damBaoCauTrucAnh();
