@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Continuity Director V6 — Sản xuất hàng loạt</title>
+<style>
+:root{--bg:#090d12;--panel:#10161d;--panel2:#121923;--line:#283240;--text:#eef3f7;--muted:#8fa0b3;--green:#78e3b1;--warn:#ffd27a;--bad:#ff8b8b;--blue:#8bb8ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px Arial,sans-serif}
+button,input,textarea,select{font:inherit;color:var(--text);background:#0b1118;border:1px solid var(--line);border-radius:8px;padding:9px}
+button{cursor:pointer}.app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{border-right:1px solid var(--line);padding:14px;position:sticky;top:0;height:100vh;overflow:auto}.brand{font-weight:800;margin-bottom:20px}
+nav button{display:block;width:100%;text-align:left;margin:4px 0;background:transparent}.active{background:#1a222d!important}
+main{min-width:0}.top{height:66px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+.page{padding:20px}.grid{display:grid;gap:12px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}.muted{color:var(--muted)}
+h2,h3{margin:0 0 12px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{min-width:0}
+label{display:block;color:var(--muted);font-size:12px;margin:8px 0 5px}textarea{width:100%;min-height:88px}input,select{width:100%}
+.btn{background:#eef3f7;color:#071019;font-weight:700}.ai{background:#1b2632;border-color:#3a5878;color:#dceaff;font-weight:700}
+.good{color:var(--green)}.warn{color:var(--warn)}.bad{color:var(--bad)}.blue{color:var(--blue)}
+.scene{padding:10px;border:1px solid var(--line);border-radius:8px;margin:7px 0;cursor:pointer}.scene.sel{border-color:#8ea2b8;background:#151d27}
+.editor{display:grid;grid-template-columns:230px minmax(520px,1fr) 320px;gap:12px}.state-card{background:var(--panel2);padding:12px;border-radius:9px;border:1px solid var(--line);margin:8px 0}
+.small{font-size:12px}.pill{border:1px solid var(--line);padding:4px 7px;border-radius:999px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+pre{white-space:pre-wrap;background:#070b10;border:1px solid var(--line);padding:12px;border-radius:8px;max-height:420px;overflow:auto}
+.notice{border:1px solid #38516b;background:#0f1822;padding:12px;border-radius:8px}
+.template{border:1px solid var(--line);border-radius:9px;padding:12px;cursor:pointer}.template:hover{border-color:#6e849b}.template.sel{border-color:var(--blue);background:#111b26}
+.table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left}.right{text-align:right}
+@media(max-width:1100px){.app{grid-template-columns:1fr}aside{height:auto;position:static}.editor,.g2,.g3,.g4{grid-template-columns:1fr}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body><div class="app">
+<aside><div class="brand">CD &nbsp; Continuity Director<br><span class="muted small">V6 · Sản xuất hàng loạt · Tiếng Việt</span></div>
+<nav id="nav"></nav><hr style="border-color:#283240">
+<button onclick="taoDuAnMoi()">+ Tạo dự án mới</button>
+<button onclick="xuatDuAn()">Xuất dữ liệu dự án</button>
+<label class="btn" style="display:block;text-align:center;margin-top:8px">Nhập dữ liệu dự án<input type="file" accept=".json" hidden onchange="nhapDuAn(event)"></label>
+</aside>
+<main><div class="top"><div><span class="muted small">DỰ ÁN</span><br><b id="tenDuAn"></b></div><div id="luu">Đã lưu</div></div><div class="page" id="noiDung"></div></main>
+</div>
+<script>
+const K='continuity_director_v11';
+const MAU_PHIM=[
+ {id:'drama_gia_dinh',ten:'Phim drama gia đình',moTa:'Xung đột, bí mật, đối thoại, cảm xúc đời thường',canh:24,nhac:'căng thẳng nhẹ, tiết chế',camera:'phim truyền hình điện ảnh'},
+ {id:'hoc_duong',ten:'Phim học đường',moTa:'Bạn bè, tình cảm, mâu thuẫn trường lớp',canh:24,nhac:'trẻ trung, nhẹ nhàng',camera:'năng động, cận cảm xúc'},
+ {id:'tinh_cam',ten:'Phim tình cảm',moTa:'Quan hệ đôi lứa, hiểu lầm, chia tay, hàn gắn',canh:24,nhac:'cảm xúc, tối giản',camera:'cận cảnh, mềm mại'},
+ {id:'trinh_tham',ten:'Phim trinh thám',moTa:'Manh mối, điều tra, suy luận, hé lộ',canh:30,nhac:'bí ẩn, căng thẳng',camera:'kiểm soát, nhiều chi tiết'},
+ {id:'kinh_di',ten:'Phim kinh dị',moTa:'Bầu không khí, nguy hiểm, bất an, bí ẩn',canh:30,nhac:'rùng rợn, không gian âm thanh dày',camera:'chậm, góc nhìn chủ quan'},
+ {id:'hai',ten:'Phim hài',moTa:'Tình huống, nhịp nhanh, phản ứng nhân vật',canh:20,nhac:'nhẹ, vui',camera:'rõ hành động, timing tốt'},
+ {id:'hanh_dong',ten:'Phim hành động',moTa:'Truy đuổi, đối đầu, hành động rõ ràng',canh:32,nhac:'dồn dập',camera:'động nhưng dễ đọc hành động'},
+ {id:'quang_cao',ten:'Video quảng cáo',moTa:'Sản phẩm, lợi ích, thông điệp, kêu gọi hành động',canh:8,nhac:'thương mại, rõ nhịp',camera:'sạch, sản phẩm là trung tâm'},
+ {id:'san_pham',ten:'Video giới thiệu sản phẩm',moTa:'Tính năng, cận cảnh, trải nghiệm sử dụng',canh:10,nhac:'hiện đại',camera:'macro, product shot'},
+ {id:'mv',ten:'MV / video âm nhạc',moTa:'Hình ảnh, nhịp điệu, mood, biểu diễn',canh:20,nhac:'theo ca khúc',camera:'phong cách, chuyển động'},
+ {id:'lich_su',ten:'Phim lịch sử',moTa:'Bối cảnh thời kỳ, trang phục, sự kiện',canh:30,nhac:'điện ảnh, trang trọng',camera:'rộng, tôn bối cảnh'},
+ {id:'co_trang',ten:'Phim cổ trang',moTa:'Thế giới cổ trang, nhân vật, lễ nghi, xung đột',canh:30,nhac:'cổ phong',camera:'điện ảnh, bố cục cân đối'},
+ {id:'khoa_hoc_vien_tuong',ten:'Khoa học viễn tưởng',moTa:'Công nghệ, thế giới tương lai, quy tắc logic',canh:30,nhac:'điện tử, không gian',camera:'quy mô lớn, chi tiết công nghệ'},
+ {id:'hoat_hinh',ten:'Phim hoạt hình / AI stylized',moTa:'Nhân vật stylized, thế giới linh hoạt',canh:24,nhac:'tùy phong cách',camera:'rõ hình khối, chuyển động'},
+ {id:'tai_lieu',ten:'Phim tài liệu / kể chuyện',moTa:'Thông tin, lời dẫn, hình minh họa',canh:20,nhac:'trung tính',camera:'rõ thông tin'},
+ {id:'mang_xa_hoi',ten:'TikTok / Shorts kể chuyện',moTa:'Hook nhanh, nhịp ngắn, giữ chân người xem',canh:12,nhac:'nhịp nhanh',camera:'9:16, cận, rõ chủ thể'},
+ {id:'tuy_chinh',ten:'Thể loại tùy chỉnh',moTa:'Tự định nghĩa phong cách và pipeline',canh:20,nhac:'tùy chỉnh',camera:'tùy chỉnh'}
+];
+const mauDuAn={
+ ten:'7 NGÀY TRƯỚC KHI LY HÔN',theLoai:'drama_gia_dinh',tiLe:'9:16',thoiLuongCanh:8,soCanhMucTieu:24,ngonNgu:'Tiếng Việt',story:'',
+ cheDoLo:'theo_chuoi',soLuongSongSong:3,
+ voice:{ngonNgu:'Tiếng Việt',vungMien:'Miền Bắc',tocDo:'1.0',hangDoi:[],khoaGiong:{}}, 
+ hinhAnh:{cheDo:'ngoai_tuyen',nhaCungCap:'Chưa kết nối',tiLeMacDinh:'9:16',hangDoi:[],khoa:{nhanVat:{},boiCanh:{},trangPhuc:{},daoCu:{}},phienBanAnh:{}},
+ taiSan:{nhanVat:[{id:'NGHIA',ten:'Nghĩa',moTa:'Nam 34 tuổi, tóc đen ngắn, khuôn mặt chữ điền'},{id:'TRANG',ten:'Trang',moTa:'Nữ 32 tuổi, khuôn mặt trái xoan'}],
+ boiCanh:[{id:'HOME_NT_01',ten:'Phòng khách nhà Nghĩa–Trang',moTa:'Sofa trái, bàn trà giữa, TV phía trước'}],
+ trangPhuc:[{id:'NGHIA_HOME_01',ten:'Nghĩa · ở nhà',nhanVatId:'NGHIA',moTa:'Trang phục ở nhà'}],
+ daoCu:[{id:'PHONE_TRANG_01',ten:'Điện thoại Trang',chuSoHuu:'TRANG',moTa:'Điện thoại màu đen'}]},
+ canh:[]
+};
+let P=JSON.parse(localStorage.getItem(K)||localStorage.getItem('continuity_director_v6')||'null')||mauDuAn, trang='tong_quan', chon=0;
+function sao(x){return JSON.parse(JSON.stringify(x))}
+function e(s=''){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function luu(){
+ localStorage.setItem(K,JSON.stringify(P));
+ tenDuAn.textContent=P.ten;
+ document.querySelector('#luu').textContent='Đã lưu '+new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
+ henDongBoCloud();
+}
+function nav(){let ds=[['tong_quan','Tổng quan'],['online_team','Online Team'],['team_control','Phân công & khóa cảnh'],['loai_phim','Loại phim & mẫu sản xuất'],['story','Kịch bản & chia cảnh'],['canh','Đạo diễn cảnh'],['hinh_anh','Studio tạo hình ảnh'],['khoa_anh','Khóa hình ảnh & Continuity'],['voice','Giọng nói & lời thoại'],['san_xuat','Sản xuất hàng loạt'],['bang','Bảng sản xuất'],['xuat','Xuất dự án']];document.querySelector('#nav').innerHTML=ds.map(x=>`<button class="${trang===x[0]?'active':''}" onclick="den('${x[0]}')">${x[1]}</button>`).join('')}
+function den(x){trang=x;nav();ve()}
+function truong(lbl,val,on,area=false){return `<label>${lbl}</label>${area?`<textarea onchange="${on}">${e(val||'')}</textarea>`:`<input value="${e(val||'')}" onchange="${on}">`}`}
+function ve(){luu();if(trang==='tong_quan')tongQuan();if(trang==='online_team')onlineTeam();if(trang==='team_control')teamControl();if(trang==='loai_phim')loaiPhim();if(trang==='story')story();if(trang==='canh')daoDien();if(trang==='hinh_anh')studioHinhAnh();if(trang==='khoa_anh')khoaAnhContinuity();if(trang==='voice')voiceDirector();if(trang==='san_xuat')sanXuatLo();if(trang==='bang')bangSanXuat();if(trang==='xuat')trangXuat()}
+function tongQuan(){let m=MAU_PHIM.find(x=>x.id===P.theLoai)||MAU_PHIM[0],tong=P.canh.length,ss=P.canh.filter(x=>x.trangThai==='SẴN SÀNG').length,duyet=P.canh.filter(x=>x.trangThai==='ĐÃ DUYỆT').length;noiDung.innerHTML=`<h2>Tổng quan dự án</h2><div class="grid g4"><div class=card><h3>${e(P.ten)}</h3><span class=muted>${e(m.ten)}</span></div><div class=card><h3>${tong}</h3><span class=muted>Tổng số cảnh</span></div><div class=card><h3>${ss}</h3><span class=muted>Sẵn sàng sản xuất</span></div><div class=card><h3>${duyet}</h3><span class=muted>Đã duyệt</span></div></div><div class=card style="margin-top:12px"><h3>Pipeline</h3>Chọn loại phim → Kịch bản → Chia cảnh → Tạo hình ảnh → Khóa ảnh → Giọng nói & lời thoại → Keyframe → Continuity → Sản xuất hàng loạt → Duyệt → Xuất<br><br><span class=good>✓ Toàn bộ giao diện dùng tiếng Việt</span></div>`}
+function loaiPhim(){let m=MAU_PHIM.find(x=>x.id===P.theLoai)||MAU_PHIM[0];noiDung.innerHTML=`<h2>Loại phim & mẫu sản xuất</h2><div class=card><div class="grid g3">${MAU_PHIM.map(x=>`<div class="template ${P.theLoai===x.id?'sel':''}" onclick="chonMau('${x.id}')"><b>${e(x.ten)}</b><p class=muted>${e(x.moTa)}</p><span class=pill>${x.canh} cảnh gợi ý</span></div>`).join('')}</div></div><div class=card style="margin-top:12px"><h3>Cấu hình hiện tại</h3><div class="grid g3">${truong('Tên dự án',P.ten,`P.ten=this.value;luu()`)}<div><label>Tỷ lệ khung hình</label><select onchange="P.tiLe=this.value;luu()"><option ${P.tiLe==='9:16'?'selected':''}>9:16</option><option ${P.tiLe==='16:9'?'selected':''}>16:9</option><option ${P.tiLe==='1:1'?'selected':''}>1:1</option></select></div>${truong('Thời lượng mỗi cảnh (giây)',P.thoiLuongCanh,`P.thoiLuongCanh=+this.value;luu()`)}${truong('Số cảnh mục tiêu',P.soCanhMucTieu,`P.soCanhMucTieu=+this.value;luu()`)}${truong('Ngôn ngữ',P.ngonNgu,`P.ngonNgu=this.value;luu()`)}<div><label>Chế độ sản xuất</label><select onchange="P.cheDoLo=this.value;luu()"><option value="theo_chuoi" ${P.cheDoLo==='theo_chuoi'?'selected':''}>Theo chuỗi continuity</option><option value="song_song" ${P.cheDoLo==='song_song'?'selected':''}>Song song cảnh độc lập</option><option value="ket_hop" ${P.cheDoLo==='ket_hop'?'selected':''}>Kết hợp thông minh</option></select></div></div><div class=notice style="margin-top:12px"><b>Phong cách gợi ý:</b> ${e(m.camera)} · <b>Âm nhạc:</b> ${e(m.nhac)}</div></div>`}
+function chonMau(id){let m=MAU_PHIM.find(x=>x.id===id);P.theLoai=id;P.soCanhMucTieu=m.canh;if(id==='quang_cao'||id==='san_pham')P.thoiLuongCanh=8;if(id==='mang_xa_hoi')P.tiLe='9:16';luu();ve()}
+function tach(txt){return txt.split(/\n+|(?<=[.!?])\s+/).map(x=>x.trim()).filter(x=>x.length>8)}
+function trangThaiMacDinh(){return {viTri:'',chuThe:'',camXuc:'trung tính'}}
+function stateRong(){return {boiCanh:P.taiSan.boiCanh[0]?.id||'',thoiGian:'',anhSang:'',nhanVat:[],daoCu:[]}}
+function taoCanhTuCau(x,i,truoc){let t=x.toLowerCase(),loai=P.theLoai;let muc='Phát triển diễn biến.';if(loai==='quang_cao'||loai==='san_pham')muc='Làm rõ lợi ích hoặc đặc điểm sản phẩm.';if(loai==='trinh_tham')muc='Đưa thêm manh mối hoặc thay đổi hướng điều tra.';if(loai==='kinh_di')muc='Tăng cảm giác bất an hoặc hé lộ nguy hiểm.';if(loai==='hai')muc='Tạo nhịp hài hoặc phản ứng gây cười.';if(loai==='mang_xa_hoi')muc=i===0?'Tạo hook giữ người xem ngay đầu video.':'Giữ nhịp nhanh và đẩy câu chuyện.';let start=truoc?sao(truoc):stateRong(),end=sao(start);return {id:'SC'+String(i+1).padStart(3,'0'),tieuDe:x.slice(0,45),yTuong:x,mucDich:muc,nguyenNhan:i?'Tiếp nối kết quả cảnh trước.':'Mở đầu diễn biến.',hanhDong:x,loiThoai:(x.match(/["“](.+?)["”]/)||[])[1]||'',dienXuat:'Tự nhiên, tiết chế, đúng cảm xúc cảnh.',camera:(MAU_PHIM.find(m=>m.id===loai)||MAU_PHIM[0]).camera,amThanh:'Giữ âm nền đồng nhất theo sequence.',trangThai:'NHÁP',start,end,phuThuoc:i?['SC'+String(i).padStart(3,'0')]:[],nhom:i<5?'SEQ01':'SEQ'+String(Math.floor(i/5)+1).padStart(2,'0')}}
+function story(){noiDung.innerHTML=`<h2>Kịch bản & chia cảnh</h2><div class=card><label>Dán cốt truyện / kịch bản</label><textarea id=storyText style="min-height:260px">${e(P.story)}</textarea><div class=toolbar><button class=ai onclick="taoHangLoat()">✨ Phân tích & tạo hàng loạt cảnh</button><button onclick="chiaThuCong()">Chia cảnh nhanh</button><button onclick="xoaCanh()">Xóa toàn bộ cảnh</button></div><div class=notice><b>Mục tiêu:</b> ${P.soCanhMucTieu} cảnh · ${P.thoiLuongCanh}s/cảnh · ${e((MAU_PHIM.find(x=>x.id===P.theLoai)||{}).ten||'')}</div></div><div class=card style="margin-top:12px"><h3>Danh sách cảnh (${P.canh.length})</h3>${P.canh.slice(0,60).map(s=>`<div class=scene><b>${s.id}</b> · ${e(s.tieuDe)} <span class=pill>${e(s.nhom)}</span><br><span class=muted>${e(s.mucDich)}</span></div>`).join('')||'<span class=muted>Chưa có cảnh.</span>'}</div>`}
+function taoHangLoat(){let txt=document.querySelector('#storyText').value.trim();if(!txt)return alert('Hãy dán kịch bản trước.');P.story=txt;let ds=tach(txt);if(ds.length<P.soCanhMucTieu&&ds.length>0){let mo=[];for(let x of ds){let p=x.split(/,|;| rồi | sau đó | nhưng /).map(y=>y.trim()).filter(y=>y.length>7);mo.push(...(p.length?p:[x]))}ds=mo}ds=ds.slice(0,Math.max(P.soCanhMucTieu,ds.length));let prev=null;P.canh=ds.map((x,i)=>{let s=taoCanhTuCau(x,i,prev);prev=s.end;return s});chon=0;luu();den('canh')}
+function chiaThuCong(){taoHangLoat()}
+function xoaCanh(){if(confirm('Xóa toàn bộ cảnh?')){P.canh=[];ve()}}
+function daoDien(){if(!P.canh.length){noiDung.innerHTML='<h2>Đạo diễn cảnh</h2><p class=muted>Chưa có cảnh. Hãy vào Kịch bản & chia cảnh.</p>';return}let s=P.canh[chon],chk=kiemTra(chon);noiDung.innerHTML=`<div class=editor><div class=card><h3>DANH SÁCH CẢNH</h3>${P.canh.map((x,i)=>`<div class="scene ${i===chon?'sel':''}" onclick="chon=${i};ve()"><b>${x.id}</b><br>${e(x.tieuDe)}<br><span class=muted>${e(x.trangThai)}</span></div>`).join('')}</div><div><div class=card><h3>${s.id}</h3>${truong('Tiêu đề',s.tieuDe,`sf('tieuDe',this.value)`)}${truong('Ý tưởng cảnh',s.yTuong,`sf('yTuong',this.value)`,true)}<div class="grid g3">${truong('Mục đích',s.mucDich,`sf('mucDich',this.value)`,true)}${truong('Nguyên nhân',s.nguyenNhan,`sf('nguyenNhan',this.value)`,true)}${truong('Một hành động chính',s.hanhDong,`sf('hanhDong',this.value)`,true)}</div><div class="grid g2">${truong('Lời thoại',s.loiThoai,`sf('loiThoai',this.value)`,true)}${truong('Diễn xuất / cảm xúc',s.dienXuat,`sf('dienXuat',this.value)`,true)}</div><div class="grid g2">${truong('Máy quay',s.camera,`sf('camera',this.value)`,true)}${truong('Âm thanh',s.amThanh,`sf('amThanh',this.value)`,true)}</div></div></div><div class=card><h3>CONTINUITY</h3><div style="font-size:42px;font-weight:800" class="${chk.diem===100?'good':chk.diem>70?'warn':'bad'}">${chk.diem}</div><b>${chk.diem===100?'SẴN SÀNG':'CẦN SỬA'}</b><div class=toolbar><button onclick="keThua()">Kế thừa cảnh trước</button><button class=btn onclick="taoPrompt()">Tạo câu lệnh</button></div>${chk.loi.map(x=>`<div class="state-card warn">⚠ ${e(x)}</div>`).join('')||'<div class="state-card good">✓ Continuity hợp lệ</div>'}<label>Trạng thái sản xuất</label><select onchange="sf('trangThai',this.value)">${['NHÁP','CẦN SỬA','SẴN SÀNG','ĐANG XẾP HÀNG','ĐANG TẠO','CHỜ DUYỆT','ĐÃ DUYỆT','THẤT BẠI'].map(x=>`<option ${s.trangThai===x?'selected':''}>${x}</option>`).join('')}</select><div id=promptBox></div></div></div>`}
+function sf(k,v){if(!duocSuaCanh(P.canh[chon]?.id))return alert('Cảnh này đang bị nhân viên khác khóa. Hãy vào Phân công & khóa cảnh để kiểm tra.');P.canh[chon][k]=v;luu()}
+function kiemTra(i){if(i===0)return {diem:100,loi:[]};let a=P.canh[i-1].end,b=P.canh[i].start,loi=[];if(JSON.stringify(a)!==JSON.stringify(b))loi.push('Start State chưa khớp hoàn toàn với End State cảnh trước.');return {diem:loi.length?80:100,loi}}
+function keThua(){if(chon===0)return;P.canh[chon].start=sao(P.canh[chon-1].end);ve()}
+function taoPrompt(){let s=P.canh[chon],m=MAU_PHIM.find(x=>x.id===P.theLoai)||MAU_PHIM[0];let p=`CẢNH ${s.id} — ${s.tieuDe}\n\nLOẠI PHIM\n${m.ten}\n\nMỤC ĐÍCH\n${s.mucDich}\n\nNGUYÊN NHÂN\n${s.nguyenNhan}\n\nMỘT HÀNH ĐỘNG CHÍNH\n${s.hanhDong}\n\nLỜI THOẠI\n${s.loiThoai||'Không có lời thoại.'}\n\nDIỄN XUẤT\n${s.dienXuat}\n\nMÁY QUAY\n${s.camera}\n\nÂM THANH\n${s.amThanh}\n\nBẮT BUỘC GIỮ LIÊN TỤC\nGiữ nguyên nhận diện nhân vật, trang phục, bố cục bối cảnh, đạo cụ và trạng thái liên tục. Không tự ý đổi trạng thái nếu không có sự kiện giải thích.`;document.querySelector('#promptBox').innerHTML=`<label>Câu lệnh đã biên dịch</label><pre>${e(p)}</pre>`}
+
+function goiYTaoAnh(loai,ref){
+  let phong=(MAU_PHIM.find(x=>x.id===P.theLoai)||MAU_PHIM[0]);
+  if(loai==='nhan_vat'){
+    let a=P.taiSan.nhanVat.find(x=>x.id===ref)||P.taiSan.nhanVat[0];
+    return `Ảnh nhân vật toàn thân, chỉ một nhân vật, nền trong suốt hoặc nền trơn, không môi trường. ${a?.ten||''}. ${a?.moTa||''}. Phong cách ${phong.camera}. Tỷ lệ ${P.tiLe}. Giữ khuôn mặt, tóc, vóc dáng và nhận diện ổn định để dùng làm ảnh tham chiếu xuyên suốt phim.`;
+  }
+  if(loai==='boi_canh'){
+    let a=P.taiSan.boiCanh.find(x=>x.id===ref)||P.taiSan.boiCanh[0];
+    return `Ảnh bối cảnh không có nhân vật. ${a?.ten||''}. ${a?.moTa||''}. Bố cục rõ ràng, các vật thể neo cố định, ánh sáng điện ảnh phù hợp thể loại ${phong.ten}. Tỷ lệ ${P.tiLe}.`;
+  }
+  if(loai==='trang_phuc'){
+    let a=P.taiSan.trangPhuc.find(x=>x.id===ref)||P.taiSan.trangPhuc[0];
+    return `Ảnh tham chiếu trang phục, chỉ nhân vật mặc trang phục này, nền trơn, không môi trường. ${a?.ten||''}. ${a?.moTa||''}. Toàn thân, chính diện, ánh sáng trung tính, dùng để khóa outfit.`;
+  }
+  if(loai==='dao_cu'){
+    let a=P.taiSan.daoCu.find(x=>x.id===ref)||P.taiSan.daoCu[0];
+    return `Ảnh đạo cụ tham chiếu, một vật thể duy nhất, nền trơn, không người. ${a?.ten||''}. ${a?.moTa||''}. Góc nhìn rõ hình dáng, màu sắc và chi tiết nhận diện.`;
+  }
+  if(loai==='keyframe'){
+    let s=P.canh.find(x=>x.id===ref)||P.canh[chon]||P.canh[0];
+    return `Ảnh keyframe điện ảnh cho ${s?.id||''} — ${s?.tieuDe||''}. ${s?.hanhDong||''}. Diễn xuất: ${s?.dienXuat||''}. Máy quay: ${s?.camera||''}. Giữ đúng nhân vật, trang phục, bối cảnh và đạo cụ theo continuity. Không thêm nhân vật hoặc vật thể ngoài kế hoạch. Tỷ lệ ${P.tiLe}.`;
+  }
+  return '';
+}
+function themVaoHangDoiAnh(){
+  let loai=document.querySelector('#loaiAnh').value;
+  let ref=document.querySelector('#refAnh').value;
+  let prompt=document.querySelector('#promptAnh').value.trim();
+  if(!prompt)return alert('Chưa có câu lệnh hình ảnh.');
+  let id='IMG_'+String((P.hinhAnh?.hangDoi?.length||0)+1).padStart(3,'0');
+  P.hinhAnh=P.hinhAnh||{cheDo:'ngoai_tuyen',nhaCungCap:'Chưa kết nối',tiLeMacDinh:P.tiLe,hangDoi:[]};
+  P.hinhAnh.hangDoi.push({id,loai,ref,prompt,trangThai:'CHỜ TẠO',anhData:'',ghiChu:'',createdAt:new Date().toISOString()});
+  luu();ve();
+}
+function capNhatPromptAnh(){
+  let loai=document.querySelector('#loaiAnh').value;
+  let sel=document.querySelector('#refAnh');
+  let ds=[];
+  if(loai==='nhan_vat')ds=P.taiSan.nhanVat.map(x=>[x.id,x.ten]);
+  if(loai==='boi_canh')ds=P.taiSan.boiCanh.map(x=>[x.id,x.ten]);
+  if(loai==='trang_phuc')ds=P.taiSan.trangPhuc.map(x=>[x.id,x.ten]);
+  if(loai==='dao_cu')ds=P.taiSan.daoCu.map(x=>[x.id,x.ten]);
+  if(loai==='keyframe')ds=P.canh.map(x=>[x.id,`${x.id} · ${x.tieuDe}`]);
+  sel.innerHTML=ds.map(x=>`<option value="${x[0]}">${e(x[1])}</option>`).join('');
+  document.querySelector('#promptAnh').value=goiYTaoAnh(loai,ds[0]?.[0]||'');
+}
+function doiRefAnh(){
+  document.querySelector('#promptAnh').value=goiYTaoAnh(document.querySelector('#loaiAnh').value,document.querySelector('#refAnh').value);
+}
+function taiAnhMau(i,ev){
+  let f=ev.target.files[0]; if(!f)return;
+  let r=new FileReader();
+  r.onload=()=>{P.hinhAnh.hangDoi[i].anhData=r.result;P.hinhAnh.hangDoi[i].trangThai='ĐÃ CÓ ẢNH';luu();ve()};
+  r.readAsDataURL(f);
+}
+function duyetAnh(i){
+  damBaoCauTrucAnh();
+  let j=P.hinhAnh.hangDoi[i];
+  j.trangThai='ĐÃ DUYỆT';
+  let keyMap={nhan_vat:'nhanVat',boi_canh:'boiCanh',trang_phuc:'trangPhuc',dao_cu:'daoCu',keyframe:'keyframe'};
+  let k=keyMap[j.loai]||j.loai;
+  P.hinhAnh.phienBanAnh[j.ref]=P.hinhAnh.phienBanAnh[j.ref]||[];
+  if(!P.hinhAnh.phienBanAnh[j.ref].includes(j.id))P.hinhAnh.phienBanAnh[j.ref].push(j.id);
+  luu();ve();
+}
+function taoLaiAnh(i){P.hinhAnh.hangDoi[i].trangThai='CHỜ TẠO';luu();ve()}
+function xoaAnhJob(i){if(confirm('Xóa tác vụ ảnh này?')){P.hinhAnh.hangDoi.splice(i,1);luu();ve()}}
+function saoChepPrompt(i){
+  navigator.clipboard?.writeText(P.hinhAnh.hangDoi[i].prompt);
+  alert('Đã sao chép câu lệnh hình ảnh.');
+}
+function taoHangLoatKeyframe(){
+  if(!P.canh.length)return alert('Chưa có cảnh.');
+  P.hinhAnh=P.hinhAnh||{cheDo:'ngoai_tuyen',nhaCungCap:'Chưa kết nối',tiLeMacDinh:P.tiLe,hangDoi:[]};
+  let existing=new Set(P.hinhAnh.hangDoi.filter(x=>x.loai==='keyframe').map(x=>x.ref));
+  for(let s of P.canh){
+    if(existing.has(s.id))continue;
+    let id='IMG_'+String(P.hinhAnh.hangDoi.length+1).padStart(3,'0');
+    P.hinhAnh.hangDoi.push({id,loai:'keyframe',ref:s.id,prompt:goiYTaoAnh('keyframe',s.id),trangThai:'CHỜ TẠO',anhData:'',ghiChu:'',createdAt:new Date().toISOString()});
+  }
+  luu();ve();
+}
+function studioHinhAnh(){
+  P.hinhAnh=P.hinhAnh||{cheDo:'ngoai_tuyen',nhaCungCap:'Chưa kết nối',tiLeMacDinh:P.tiLe,hangDoi:[]};
+  let q=P.hinhAnh.hangDoi||[];
+  noiDung.innerHTML=`<h2>Studio tạo hình ảnh</h2>
+  <div class="grid g3">
+    <div class=card><h3>${q.length}</h3><span class=muted>Tổng tác vụ ảnh</span></div>
+    <div class=card><h3>${q.filter(x=>x.trangThai==='ĐÃ CÓ ẢNH'||x.trangThai==='ĐÃ DUYỆT').length}</h3><span class=muted>Đã có ảnh</span></div>
+    <div class=card><h3>${q.filter(x=>x.trangThai==='ĐÃ DUYỆT').length}</h3><span class=muted>Ảnh đã duyệt</span></div>
+  </div>
+  <div class=card style="margin-top:12px">
+    <h3>Tạo tác vụ hình ảnh</h3>
+    <div class="grid g3">
+      <div><label>Loại hình ảnh</label><select id=loaiAnh onchange="capNhatPromptAnh()">
+        <option value=nhan_vat>Ảnh nhân vật</option>
+        <option value=boi_canh>Ảnh bối cảnh</option>
+        <option value=trang_phuc>Ảnh trang phục</option>
+        <option value=dao_cu>Ảnh đạo cụ</option>
+        <option value=keyframe>Ảnh keyframe cảnh</option>
+      </select></div>
+      <div><label>Đối tượng / cảnh</label><select id=refAnh onchange="doiRefAnh()"></select></div>
+      <div><label>Tỷ lệ</label><input value="${e(P.tiLe)}" disabled></div>
+    </div>
+    <label>Câu lệnh tạo hình ảnh</label>
+    <textarea id=promptAnh style="min-height:180px"></textarea>
+    <div class=toolbar>
+      <button class=btn onclick="themVaoHangDoiAnh()">+ Thêm vào hàng đợi ảnh</button>
+      <button onclick="taoHangLoatKeyframe()">Tạo tác vụ keyframe cho toàn bộ cảnh</button>
+    </div>
+    <div class=notice><b>Chế độ hiện tại:</b> Offline. Tool đang quản lý prompt + reference + hàng đợi ảnh. Khi đưa online, nút tạo ảnh sẽ nối API tạo hình ảnh và trả ảnh trực tiếp vào từng tác vụ.</div>
+  </div>
+  <div class=card style="margin-top:12px">
+    <h3>Hàng đợi hình ảnh</h3>
+    ${q.length?q.map((x,i)=>`<div class=state-card>
+      <div class=row><b>${e(x.id)}</b><span class=pill>${e(x.trangThai)}</span><span class=muted>${e(x.loai)} · ${e(x.ref)}</span></div>
+      ${x.anhData?`<img src="${x.anhData}" style="max-width:180px;max-height:240px;border-radius:8px;border:1px solid var(--line);margin:10px 0;object-fit:cover">`:''}
+      <pre>${e(x.prompt)}</pre>
+      <div class=toolbar>
+        <button onclick="saoChepPrompt(${i})">Sao chép câu lệnh</button>
+        <label class="btn" style="display:inline-block">Tải ảnh kết quả vào<input type=file accept="image/*" hidden onchange="taiAnhMau(${i},event)"></label>
+        ${x.anhData?`<button onclick="duyetAnh(${i})">Duyệt ảnh</button>`:''}${x.trangThai==='ĐÃ DUYỆT'&&x.loai!=='keyframe'?`<button onclick="(function(){let m={nhan_vat:'nhanVat',boi_canh:'boiCanh',trang_phuc:'trangPhuc',dao_cu:'daoCu'};khoaAnh(m['${x.loai}'],'${x.ref}','${x.id}')})()">Khóa làm ảnh tham chiếu</button>`:''}
+        <button onclick="taoLaiAnh(${i})">Đánh dấu tạo lại</button>
+        <button onclick="xoaAnhJob(${i})">Xóa</button>
+      </div>
+    </div>`).join(''):'<span class=muted>Chưa có tác vụ hình ảnh.</span>'}
+  </div>`;
+  setTimeout(capNhatPromptAnh,0);
+}
+
+function damBaoCauTrucAnh(){
+  P.hinhAnh=P.hinhAnh||{cheDo:'ngoai_tuyen',nhaCungCap:'Chưa kết nối',tiLeMacDinh:P.tiLe,hangDoi:[],khoa:{nhanVat:{},boiCanh:{},trangPhuc:{},daoCu:{}},phienBanAnh:{}};
+  P.hinhAnh.khoa=P.hinhAnh.khoa||{nhanVat:{},boiCanh:{},trangPhuc:{},daoCu:{}};
+  P.hinhAnh.phienBanAnh=P.hinhAnh.phienBanAnh||{};
+}
+function anhDaDuyetTheo(loai,ref){
+  damBaoCauTrucAnh();
+  return P.hinhAnh.hangDoi.filter(x=>x.loai===loai && x.ref===ref && x.trangThai==='ĐÃ DUYỆT' && x.anhData);
+}
+function khoaAnh(loai,ref,jobId){
+  damBaoCauTrucAnh();
+  P.hinhAnh.khoa[loai][ref]=jobId;
+  luu();ve();
+}
+function boKhoaAnh(loai,ref){
+  damBaoCauTrucAnh();
+  delete P.hinhAnh.khoa[loai][ref];
+  luu();ve();
+}
+function jobTheoId(id){damBaoCauTrucAnh();return P.hinhAnh.hangDoi.find(x=>x.id===id)}
+function taoPromptKeyframeCoReference(sceneId){
+  damBaoCauTrucAnh();
+  let s=P.canh.find(x=>x.id===sceneId);
+  if(!s)return '';
+  let phong=(MAU_PHIM.find(x=>x.id===P.theLoai)||MAU_PHIM[0]);
+  let refs=[];
+  for(let [ref,jobId] of Object.entries(P.hinhAnh.khoa.nhanVat||{})){
+    let j=jobTheoId(jobId); if(j) refs.push(`Nhân vật ${ref}: dùng ảnh khóa ${jobId}`);
+  }
+  for(let [ref,jobId] of Object.entries(P.hinhAnh.khoa.boiCanh||{})){
+    let j=jobTheoId(jobId); if(j) refs.push(`Bối cảnh ${ref}: dùng ảnh khóa ${jobId}`);
+  }
+  for(let [ref,jobId] of Object.entries(P.hinhAnh.khoa.trangPhuc||{})){
+    let j=jobTheoId(jobId); if(j) refs.push(`Trang phục ${ref}: dùng ảnh khóa ${jobId}`);
+  }
+  for(let [ref,jobId] of Object.entries(P.hinhAnh.khoa.daoCu||{})){
+    let j=jobTheoId(jobId); if(j) refs.push(`Đạo cụ ${ref}: dùng ảnh khóa ${jobId}`);
+  }
+  return `Ảnh keyframe điện ảnh cho ${s.id} — ${s.tieuDe}.
+Mục đích cảnh: ${s.mucDich}
+Một hành động chính: ${s.hanhDong}
+Diễn xuất: ${s.dienXuat}
+Máy quay: ${s.camera}
+Âm thanh không ảnh hưởng hình ảnh.
+Phong cách: ${phong.camera}.
+Tỷ lệ: ${P.tiLe}.
+
+KHÓA HÌNH ẢNH THAM CHIẾU:
+${refs.length?refs.join('\n'):'Chưa có ảnh khóa; ưu tiên giữ nhận diện theo asset hiện có.'}
+
+YÊU CẦU CONTINUITY:
+- Giữ nguyên khuôn mặt, tóc, vóc dáng và độ tuổi của nhân vật.
+- Giữ nguyên trang phục đã khóa.
+- Giữ bố cục bối cảnh và các vật thể neo cố định.
+- Giữ hình dáng, màu sắc và trạng thái đạo cụ.
+- Không thêm người, đạo cụ, chữ hoặc vật thể ngoài kế hoạch.
+- Không tự đổi góc trái/phải của không gian nếu không có chỉ dẫn.
+- Chỉ thể hiện đúng một hành động chính của cảnh.`;
+}
+function capNhatPromptKeyframeTheoKhoa(){
+  damBaoCauTrucAnh();
+  let n=0;
+  for(let j of P.hinhAnh.hangDoi){
+    if(j.loai==='keyframe' && j.trangThai!=='ĐÃ DUYỆT'){
+      j.prompt=taoPromptKeyframeCoReference(j.ref);
+      n++;
+    }
+  }
+  luu();alert('Đã cập nhật '+n+' prompt keyframe theo ảnh khóa.');ve();
+}
+function tinhDiemKhoaAnh(){
+  damBaoCauTrucAnh();
+  let total=P.taiSan.nhanVat.length+P.taiSan.boiCanh.length+P.taiSan.trangPhuc.length+P.taiSan.daoCu.length;
+  let locked=Object.keys(P.hinhAnh.khoa.nhanVat||{}).length+Object.keys(P.hinhAnh.khoa.boiCanh||{}).length+Object.keys(P.hinhAnh.khoa.trangPhuc||{}).length+Object.keys(P.hinhAnh.khoa.daoCu||{}).length;
+  return {total,locked,score:total?Math.round(locked/total*100):100};
+}
+function hangKhoaLoai(loai,assets){
+  damBaoCauTrucAnh();
+  return assets.map(a=>{
+    let jobId=P.hinhAnh.khoa[loai]?.[a.id]||'';
+    let job=jobTheoId(jobId);
+    let duyets=anhDaDuyetTheo(loai,a.id);
+    return `<div class=state-card>
+      <div class=row><b>${e(a.ten||a.id)}</b><span class=muted>${e(a.id)}</span>${jobId?'<span class="pill good">ĐÃ KHÓA</span>':'<span class="pill warn">CHƯA KHÓA</span>'}</div>
+      ${job?.anhData?`<img src="${job.anhData}" style="max-width:160px;max-height:220px;object-fit:cover;border-radius:8px;border:1px solid var(--line);margin:10px 0">`:''}
+      <label>Chọn ảnh đã duyệt để khóa</label>
+      <select onchange="this.value?khoaAnh('${loai}','${a.id}',this.value):boKhoaAnh('${loai}','${a.id}')">
+        <option value="">— Chưa khóa —</option>
+        ${duyets.map(j=>`<option value="${j.id}" ${jobId===j.id?'selected':''}>${e(j.id)} · ${e(j.ref)}</option>`).join('')}
+      </select>
+      ${!duyets.length?'<div class=muted style="margin-top:8px">Chưa có ảnh ĐÃ DUYỆT cho asset này.</div>':''}
+    </div>`;
+  }).join('');
+}
+function khoaAnhContinuity(){
+  damBaoCauTrucAnh();
+  let d=tinhDiemKhoaAnh();
+  noiDung.innerHTML=`<h2>Khóa hình ảnh & Continuity</h2>
+  <div class="grid g3">
+    <div class=card><h3>${d.locked}/${d.total}</h3><span class=muted>Asset đã có ảnh khóa</span></div>
+    <div class=card><h3 class="${d.score===100?'good':d.score>=60?'warn':'bad'}">${d.score}%</h3><span class=muted>Độ sẵn sàng hình ảnh</span></div>
+    <div class=card><h3>${P.hinhAnh.hangDoi.filter(x=>x.loai==='keyframe').length}</h3><span class=muted>Keyframe trong hàng đợi</span></div>
+  </div>
+  <div class=card style="margin-top:12px">
+    <h3>Nguyên tắc khóa</h3>
+    <div class=notice>Chỉ ảnh có trạng thái <b>ĐÃ DUYỆT</b> mới được dùng làm ảnh khóa. Khi đã khóa, prompt keyframe sẽ tự nhắc hệ thống giữ đúng nhận diện nhân vật, bối cảnh, trang phục và đạo cụ.</div>
+    <div class=toolbar><button class=btn onclick="capNhatPromptKeyframeTheoKhoa()">Cập nhật toàn bộ prompt keyframe theo ảnh khóa</button></div>
+  </div>
+  <div class=card style="margin-top:12px"><h3>Khóa nhân vật</h3>${hangKhoaLoai('nhanVat',P.taiSan.nhanVat)||'<span class=muted>Chưa có nhân vật.</span>'}</div>
+  <div class=card style="margin-top:12px"><h3>Khóa bối cảnh</h3>${hangKhoaLoai('boiCanh',P.taiSan.boiCanh)||'<span class=muted>Chưa có bối cảnh.</span>'}</div>
+  <div class=card style="margin-top:12px"><h3>Khóa trang phục</h3>${hangKhoaLoai('trangPhuc',P.taiSan.trangPhuc)||'<span class=muted>Chưa có trang phục.</span>'}</div>
+  <div class=card style="margin-top:12px"><h3>Khóa đạo cụ</h3>${hangKhoaLoai('daoCu',P.taiSan.daoCu)||'<span class=muted>Chưa có đạo cụ.</span>'}</div>`;
+}
+
+function damBaoVoice(){
+ P.voice=P.voice||{ngonNgu:'Tiếng Việt',vungMien:'Miền Bắc',tocDo:'1.0',hangDoi:[],khoaGiong:{}};
+ P.voice.hangDoi=P.voice.hangDoi||[];P.voice.khoaGiong=P.voice.khoaGiong||{};
+}
+function hoSoGiongMacDinh(nv){
+ let ten=(nv?.ten||'Nhân vật');
+ return {nhanVatId:nv?.id||'',ten,gioiTinh:'Tự động',doTuoi:'Trưởng thành',vungMien:P.voice?.vungMien||'Miền Bắc',chatGiong:'Tự nhiên, điện ảnh, rõ lời',caoDo:'Trung bình',tocDo:'1.0',nangLuong:'Vừa',camXucMacDinh:'Tiết chế, tự nhiên',ghiChu:''};
+}
+function taoHoSoGiong(){
+ damBaoVoice();
+ for(let nv of P.taiSan.nhanVat){
+   if(!P.voice.khoaGiong[nv.id])P.voice.khoaGiong[nv.id]=hoSoGiongMacDinh(nv);
+ }
+ luu();ve();
+}
+function suaVoice(id,k,v){damBaoVoice();if(!P.voice.khoaGiong[id])P.voice.khoaGiong[id]=hoSoGiongMacDinh(P.taiSan.nhanVat.find(x=>x.id===id));P.voice.khoaGiong[id][k]=v;luu()}
+function tachLoiThoai(s){
+ let raw=(s.loiThoai||'').trim();
+ if(!raw)return [];
+ let lines=raw.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+ return lines.map((x,i)=>{
+   let m=x.match(/^([^:：]{1,30})[:：]\s*(.+)$/);
+   if(m){
+     let name=m[1].trim(), nv=P.taiSan.nhanVat.find(n=>n.ten.toLowerCase()===name.toLowerCase()||n.id.toLowerCase()===name.toLowerCase());
+     return {nhanVatId:nv?.id||'',nhanVat:nv?.ten||name,noiDung:m[2].trim(),thuTu:i+1};
+   }
+   let nv=P.taiSan.nhanVat[0];
+   return {nhanVatId:nv?.id||'',nhanVat:nv?.ten||'Nhân vật',noiDung:x,thuTu:i+1};
+ });
+}
+function taoNoiDungVoiceHangLoat(){
+ damBaoVoice();taoHoSoGiong();
+ let old=new Map(P.voice.hangDoi.map(x=>[x.canhId+'|'+x.thuTu,x]));
+ let out=[];
+ for(let s of P.canh){
+   let ds=tachLoiThoai(s);
+   for(let d of ds){
+     let key=s.id+'|'+d.thuTu, prev=old.get(key), hs=P.voice.khoaGiong[d.nhanVatId]||hoSoGiongMacDinh(P.taiSan.nhanVat.find(x=>x.id===d.nhanVatId));
+     out.push(prev||{id:'VOICE_'+String(out.length+1).padStart(4,'0'),canhId:s.id,thuTu:d.thuTu,nhanVatId:d.nhanVatId,nhanVat:d.nhanVat,noiDung:d.noiDung,camXuc:s.dienXuat||hs.camXucMacDinh,tocDo:hs.tocDo||'1.0',vungMien:hs.vungMien||'Miền Bắc',trangThai:'CHỜ TẠO',tepAmThanh:'',thoiLuongUocTinh:Math.max(1,Math.round(d.noiDung.length/12))});
+   }
+ }
+ P.voice.hangDoi=out;luu();ve();
+}
+function themVoiceThuCong(){
+ damBaoVoice();let s=P.canh[0],nv=P.taiSan.nhanVat[0];if(!s||!nv)return alert('Cần có ít nhất một cảnh và một nhân vật.');
+ P.voice.hangDoi.push({id:'VOICE_'+String(P.voice.hangDoi.length+1).padStart(4,'0'),canhId:s.id,thuTu:1,nhanVatId:nv.id,nhanVat:nv.ten,noiDung:'',camXuc:'Tự nhiên',tocDo:'1.0',vungMien:'Miền Bắc',trangThai:'CHỜ TẠO',tepAmThanh:'',thoiLuongUocTinh:1});luu();ve();
+}
+function vv(i,k,v){P.voice.hangDoi[i][k]=v;if(k==='noiDung')P.voice.hangDoi[i].thoiLuongUocTinh=Math.max(1,Math.round(v.length/12));luu()}
+function taiVoice(i,ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{P.voice.hangDoi[i].tepAmThanh=r.result;P.voice.hangDoi[i].trangThai='ĐÃ CÓ VOICE';luu();ve()};r.readAsDataURL(f)}
+function duyetVoice(i){P.voice.hangDoi[i].trangThai='ĐÃ DUYỆT';luu();ve()}
+function xoaVoice(i){if(confirm('Xóa voice này?')){P.voice.hangDoi.splice(i,1);luu();ve()}}
+function khoaTatCaVoice(){
+ damBaoVoice();for(let nv of P.taiSan.nhanVat)if(!P.voice.khoaGiong[nv.id])P.voice.khoaGiong[nv.id]=hoSoGiongMacDinh(nv);luu();ve();
+}
+function voiceDirector(){
+ damBaoVoice();if(!Object.keys(P.voice.khoaGiong).length)taoHoSoGiong();
+ let q=P.voice.hangDoi||[], tong=q.length,duyet=q.filter(x=>x.trangThai==='ĐÃ DUYỆT').length;
+ noiDung.innerHTML=`<h2>Giọng nói & lời thoại</h2>
+ <div class="grid g3"><div class=card><h3>${P.taiSan.nhanVat.length}</h3><span class=muted>Hồ sơ giọng nhân vật</span></div><div class=card><h3>${tong}</h3><span class=muted>Đoạn voice</span></div><div class=card><h3>${duyet}</h3><span class=muted>Voice đã duyệt</span></div></div>
+ <div class=card style="margin-top:12px"><h3>Khóa giọng nhân vật</h3>
+ ${P.taiSan.nhanVat.map(nv=>{let h=P.voice.khoaGiong[nv.id]||hoSoGiongMacDinh(nv);return `<div class=state-card><div class=row><b>${e(nv.ten)}</b><span class=pill>${e(nv.id)}</span></div>
+ <div class="grid g3">
+ <div><label>Vùng miền / giọng</label><select onchange="suaVoice('${nv.id}','vungMien',this.value)">${['Miền Bắc','Hà Nội','Hải Phòng','Quảng Ninh','Miền Trung','Huế','Đà Nẵng','Miền Nam','Sài Gòn','Tùy chỉnh'].map(x=>`<option ${h.vungMien===x?'selected':''}>${x}</option>`).join('')}</select></div>
+ ${truong('Chất giọng',h.chatGiong,`suaVoice('${nv.id}','chatGiong',this.value)`)}
+ ${truong('Độ tuổi giọng',h.doTuoi,`suaVoice('${nv.id}','doTuoi',this.value)`)}
+ ${truong('Cao độ',h.caoDo,`suaVoice('${nv.id}','caoDo',this.value)`)}
+ ${truong('Tốc độ',h.tocDo,`suaVoice('${nv.id}','tocDo',this.value)`)}
+ ${truong('Năng lượng',h.nangLuong,`suaVoice('${nv.id}','nangLuong',this.value)`)}
+ </div>${truong('Cảm xúc mặc định',h.camXucMacDinh,`suaVoice('${nv.id}','camXucMacDinh',this.value)`)}
+ </div>`}).join('')}
+ </div>
+ <div class=card style="margin-top:12px"><h3>Nội dung voice hàng loạt</h3>
+ <div class=notice>Tool lấy <b>Lời thoại</b> từ từng cảnh, tách theo nhân vật và tạo thành hàng đợi voice. Có thể sửa từng câu trước khi sản xuất.</div>
+ <div class=toolbar><button class=btn onclick="taoNoiDungVoiceHangLoat()">Tạo voice từ toàn bộ lời thoại</button><button onclick="themVoiceThuCong()">+ Thêm voice thủ công</button></div>
+ ${q.length?q.map((v,i)=>`<div class=state-card><div class=row><b>${e(v.id)}</b><span class=pill>${e(v.canhId)}</span><span class=pill>${e(v.trangThai)}</span></div>
+ <div class="grid g3"><div><label>Nhân vật</label><select onchange="vv(${i},'nhanVatId',this.value)">${P.taiSan.nhanVat.map(n=>`<option value="${n.id}" ${v.nhanVatId===n.id?'selected':''}>${e(n.ten)}</option>`).join('')}</select></div>${truong('Giọng / vùng miền',v.vungMien,`vv(${i},'vungMien',this.value)`)}${truong('Tốc độ',v.tocDo,`vv(${i},'tocDo',this.value)`)}</div>
+ ${truong('Nội dung phải đọc',v.noiDung,`vv(${i},'noiDung',this.value)`,true)}
+ ${truong('Cảm xúc / cách đọc',v.camXuc,`vv(${i},'camXuc',this.value)`,true)}
+ <div class=row><span class=muted>Ước tính: ${v.thoiLuongUocTinh}s</span>
+ <label class=btn style="display:inline-block">Tải file voice vào<input type=file accept="audio/*" hidden onchange="taiVoice(${i},event)"></label>
+ ${v.tepAmThanh?`<audio controls src="${v.tepAmThanh}"></audio><button onclick="duyetVoice(${i})">Duyệt voice</button>`:''}
+ <button onclick="xoaVoice(${i})">Xóa</button></div></div>`).join(''):'<span class=muted>Chưa có nội dung voice. Hãy bấm “Tạo voice từ toàn bộ lời thoại”.</span>'}
+ </div>
+ <div class=card style="margin-top:12px"><h3>Quy tắc đồng nhất voice</h3><div class=notice>
+ Mỗi nhân vật giữ cố định: vùng miền, chất giọng, độ tuổi giọng, cao độ và tốc độ. Chỉ <b>cảm xúc</b> được thay đổi theo từng cảnh. Khi lên online, hồ sơ này sẽ được gửi cùng mỗi yêu cầu TTS/voice để tránh giọng thay đổi giữa các cảnh.
+ </div></div>`;
+}
+function sanXuatLo(){let ready=P.canh.filter(s=>s.trangThai==='SẴN SÀNG');noiDung.innerHTML=`<h2>Sản xuất hàng loạt</h2><div class="grid g3"><div class=card><h3>${P.canh.length}</h3><span class=muted>Tổng cảnh</span></div><div class=card><h3>${ready.length}</h3><span class=muted>Sẵn sàng</span></div><div class=card><h3>${P.soLuongSongSong}</h3><span class=muted>Tối đa chạy song song</span></div></div><div class=card style="margin-top:12px"><h3>Cấu hình lô</h3><div class="grid g3"><div><label>Chế độ</label><select onchange="P.cheDoLo=this.value;luu()"><option value=theo_chuoi ${P.cheDoLo==='theo_chuoi'?'selected':''}>Theo chuỗi continuity</option><option value=song_song ${P.cheDoLo==='song_song'?'selected':''}>Song song cảnh độc lập</option><option value=ket_hop ${P.cheDoLo==='ket_hop'?'selected':''}>Kết hợp thông minh</option></select></div>${truong('Số tác vụ song song',P.soLuongSongSong,`P.soLuongSongSong=+this.value;luu()`)}<div><label>Phạm vi</label><select id=phamVi><option value=ready>Chỉ cảnh SẴN SÀNG</option><option value=all>Tất cả cảnh chưa duyệt</option><option value=seq>Sequence hiện tại</option></select></div></div><div class=toolbar><button class=btn onclick="lapKeHoachLo()">Lập kế hoạch sản xuất</button><button onclick="danhDauHangDoi()">Đưa vào hàng đợi</button></div><div id=keHoach></div></div>`}
+function lapKeHoachLo(){let ds=P.canh.filter(s=>s.trangThai==='SẴN SÀNG');let waves=[];if(P.cheDoLo==='theo_chuoi'){ds.forEach((s,i)=>waves.push([s.id]))}else{for(let i=0;i<ds.length;i+=P.soLuongSongSong)waves.push(ds.slice(i,i+P.soLuongSongSong).map(s=>s.id))}document.querySelector('#keHoach').innerHTML=`<h3>Kế hoạch</h3>${waves.map((w,i)=>`<div class=state-card><b>Đợt ${i+1}</b>: ${w.join(', ')}</div>`).join('')||'<span class=muted>Không có cảnh SẴN SÀNG.</span>'}`}
+function danhDauHangDoi(){P.canh.forEach(s=>{if(s.trangThai==='SẴN SÀNG')s.trangThai='ĐANG XẾP HÀNG'});luu();den('bang')}
+function bangSanXuat(){noiDung.innerHTML=`<h2>Bảng sản xuất</h2><div class=card><table class=table><thead><tr><th>Cảnh</th><th>Sequence</th><th>Tiêu đề</th><th>Trạng thái</th><th>Continuity</th><th></th></tr></thead><tbody>${P.canh.map((s,i)=>{let c=kiemTra(i);return `<tr><td><b>${s.id}</b></td><td>${e(s.nhom)}</td><td>${e(s.tieuDe)}</td><td>${e(s.trangThai)}</td><td class="${c.diem===100?'good':'warn'}">${c.diem}</td><td><button onclick="chon=${i};den('canh')">Mở</button></td></tr>`}).join('')}</tbody></table></div>`}
+function trangXuat(){noiDung.innerHTML=`<h2>Xuất dự án</h2><div class=card><h3>Dữ liệu dự án</h3><p>Lưu toàn bộ cấu hình thể loại, kịch bản, scene, trạng thái continuity và trạng thái sản xuất.</p><button class=btn onclick=xuatDuAn()>Xuất continuity-director-project.json</button></div>`}
+function xuatDuAn(){let b=new Blob([JSON.stringify({dinhDang:'continuity-director-project',phienBan:'11.0-team-control',duAn:P},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='continuity-director-project.json';a.click();URL.revokeObjectURL(a.href)}
+function nhapDuAn(ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);P=x.duAn||x.project||x;chon=0;luu();ve()}catch{alert('Tệp JSON không hợp lệ.')}};r.readAsText(f)}
+function taoDuAnMoi(){let n=prompt('Tên dự án mới?');if(!n)return;P=sao(mauDuAn);P.ten=n;P.canh=[];P.story='';chon=0;luu();den('loai_phim')}
+
+/* ===================== V10 ONLINE TEAM ===================== */
+let SB=null, PHIEN=null, WORKSPACE=null, CLOUD_PROJECT_ID=localStorage.getItem('cd_v11_cloud_project_id')||localStorage.getItem('cd_v10_cloud_project_id')||'';
+let DONG_BO_TIMER=null, DANG_DONG_BO=false, SUPABASE_READY=false;
+async function khoiTaoOnline(){
+ try{const r=await fetch('/api/config'); if(!r.ok) throw new Error('Chưa có cấu hình máy chủ'); const c=await r.json();
+ if(!c.supabaseUrl||!c.supabasePublishableKey) throw new Error('Thiếu cấu hình Supabase');
+ SB=window.supabase.createClient(c.supabaseUrl,c.supabasePublishableKey); SUPABASE_READY=true;
+ const {data}=await SB.auth.getSession(); PHIEN=data.session||null; if(PHIEN){ await napWorkspace(); await dongBoHoSoThanhVien(); }
+ SB.auth.onAuthStateChange(async(_event,session)=>{PHIEN=session||null;if(PHIEN){await napWorkspace();await dongBoHoSoThanhVien();}else WORKSPACE=null;if(trang==='online_team'||trang==='team_control')ve();});
+ }catch(err){SUPABASE_READY=false;console.warn('Online Team:',err.message)}
+}
+function henDongBoCloud(){if(!SUPABASE_READY||!PHIEN||!WORKSPACE||!CLOUD_PROJECT_ID||DANG_DONG_BO)return;clearTimeout(DONG_BO_TIMER);DONG_BO_TIMER=setTimeout(()=>dongBoCloud(false),1200)}
+async function dangKy(){if(!SB)return alert('Online chưa được cấu hình.');let email=document.querySelector('#otEmail').value.trim(),pass=document.querySelector('#otPass').value;if(!email||pass.length<6)return alert('Nhập email và mật khẩu tối thiểu 6 ký tự.');let {error}=await SB.auth.signUp({email,password:pass});if(error)return alert(error.message);alert('Đã đăng ký. Nếu hệ thống yêu cầu xác nhận email, hãy xác nhận rồi đăng nhập.')}
+async function dangNhap(){if(!SB)return alert('Online chưa được cấu hình.');let email=document.querySelector('#otEmail').value.trim(),pass=document.querySelector('#otPass').value;let {data,error}=await SB.auth.signInWithPassword({email,password:pass});if(error)return alert(error.message);PHIEN=data.session;await napWorkspace();await dongBoHoSoThanhVien();ve()}
+async function dangXuat(){if(SB)await SB.auth.signOut();PHIEN=null;WORKSPACE=null;CLOUD_PROJECT_ID='';localStorage.removeItem('cd_v11_cloud_project_id');ve()}
+async function napWorkspace(){if(!SB||!PHIEN)return;let {data,error}=await SB.from('workspace_members').select('workspace_id,role,workspaces(id,name,join_code)').eq('user_id',PHIEN.user.id).limit(1);if(error){console.warn(error);return}if(data&&data[0])WORKSPACE={...data[0].workspaces,role:data[0].role}}
+async function taoWorkspace(){let ten=(document.querySelector('#workspaceName')?.value||'').trim()||'Đội sản xuất';let {error}=await SB.rpc('create_workspace',{p_name:ten});if(error)return alert(error.message);await napWorkspace();ve()}
+async function thamGiaWorkspace(){let code=(document.querySelector('#joinCode')?.value||'').trim().toUpperCase();if(!code)return alert('Nhập mã đội.');let {error}=await SB.rpc('join_workspace_by_code',{p_code:code});if(error)return alert(error.message);await napWorkspace();ve()}
+async function taiDanhSachDuAn(){if(!SB||!WORKSPACE)return[];let {data,error}=await SB.from('projects').select('id,name,updated_at,created_by').eq('workspace_id',WORKSPACE.id).order('updated_at',{ascending:false});if(error){console.warn(error);return[]}return data||[]}
+async function taoDuAnCloud(){if(!SB||!WORKSPACE)return alert('Bạn chưa tham gia đội.');let {data,error}=await SB.from('projects').insert({workspace_id:WORKSPACE.id,name:P.ten,data:P,created_by:PHIEN.user.id,updated_by:PHIEN.user.id}).select('id').single();if(error)return alert(error.message);CLOUD_PROJECT_ID=data.id;localStorage.setItem('cd_v11_cloud_project_id',data.id);alert('Đã tạo bản dự án trên Cloud.');ve()}
+async function dongBoCloud(hienThongBao=true){if(!SB||!WORKSPACE||!CLOUD_PROJECT_ID)return hienThongBao&&alert('Chưa chọn dự án Cloud.');if(DANG_DONG_BO)return;DANG_DONG_BO=true;document.querySelector('#luu').textContent='Đang đồng bộ...';let {error}=await SB.from('projects').update({name:P.ten,data:P,updated_by:PHIEN.user.id,updated_at:new Date().toISOString()}).eq('id',CLOUD_PROJECT_ID);DANG_DONG_BO=false;if(error){document.querySelector('#luu').textContent='Lỗi đồng bộ';if(hienThongBao)alert(error.message);return}document.querySelector('#luu').textContent='Đã đồng bộ Cloud';if(hienThongBao)alert('Đã đồng bộ dự án lên Cloud.')}
+async function moDuAnCloud(id){let {data,error}=await SB.from('projects').select('id,name,data').eq('id',id).single();if(error)return alert(error.message);P=data.data;CLOUD_PROJECT_ID=id;localStorage.setItem('cd_v11_cloud_project_id',id);chon=0;localStorage.setItem(K,JSON.stringify(P));alert('Đã mở dự án Cloud: '+data.name);den('tong_quan')}
+async function layBanMoiCloud(){if(!CLOUD_PROJECT_ID)return alert('Chưa chọn dự án Cloud.');await moDuAnCloud(CLOUD_PROJECT_ID)}
+async function xoaDuAnCloud(id){if(!confirm('Xóa dự án này khỏi Cloud?'))return;let {error}=await SB.from('projects').delete().eq('id',id);if(error)return alert(error.message);if(CLOUD_PROJECT_ID===id){CLOUD_PROJECT_ID='';localStorage.removeItem('cd_v11_cloud_project_id')}ve()}
+async function renderDanhSachCloud(){let el=document.querySelector('#cloudProjects');if(!el||!WORKSPACE)return;el.innerHTML='<span class=muted>Đang tải...</span>';let ds=await taiDanhSachDuAn();el.innerHTML=ds.length?ds.map(x=>`<div class=state-card><div class=row><b>${e(x.name)}</b>${CLOUD_PROJECT_ID===x.id?'<span class="pill good">ĐANG MỞ</span>':''}</div><div class=muted>Cập nhật: ${new Date(x.updated_at).toLocaleString('vi-VN')}</div><div class=toolbar><button class=btn onclick="moDuAnCloud('${x.id}')">Mở</button>${CLOUD_PROJECT_ID===x.id?'<button onclick="dongBoCloud()">Đồng bộ ngay</button><button onclick="layBanMoiCloud()">Lấy bản Cloud mới nhất</button>':''}${WORKSPACE.role==='owner'?`<button onclick="xoaDuAnCloud('${x.id}')">Xóa Cloud</button>`:''}</div></div>`).join(''):'<span class=muted>Chưa có dự án Cloud.</span>'}
+function onlineTeam(){
+ if(!SUPABASE_READY){noiDung.innerHTML=`<h2>Online Team</h2><div class=card><h3 class=warn>Chưa kết nối máy chủ</h3><p>V11 vẫn hoạt động Offline. Để bật làm việc nhóm, hãy triển khai lên Vercel và thêm biến môi trường Supabase theo file hướng dẫn.</p><div class=notice>Không đặt Service Role Key hoặc API bí mật trong trình duyệt.</div></div>`;return}
+ if(!PHIEN){noiDung.innerHTML=`<h2>Online Team</h2><div class=card style="max-width:620px"><h3>Đăng nhập / đăng ký nhân viên</h3><label>Email</label><input id=otEmail type=email placeholder="nhanvien@congty.vn"><label>Mật khẩu</label><input id=otPass type=password placeholder="Tối thiểu 6 ký tự"><div class=toolbar><button class=btn onclick=dangNhap()>Đăng nhập</button><button onclick=dangKy()>Đăng ký</button></div><div class=notice>Dữ liệu Offline trên máy vẫn được giữ nguyên.</div></div>`;return}
+ if(!WORKSPACE){noiDung.innerHTML=`<h2>Online Team</h2><div class="grid g2"><div class=card><h3>Tạo đội mới</h3><label>Tên đội</label><input id=workspaceName value="Đội sản xuất phim"><div class=toolbar><button class=btn onclick=taoWorkspace()>Tạo đội</button></div></div><div class=card><h3>Tham gia đội của công ty</h3><label>Mã đội</label><input id=joinCode placeholder="Ví dụ: A1B2C3D4"><div class=toolbar><button onclick=thamGiaWorkspace()>Tham gia</button></div></div></div><div class=card style="margin-top:12px"><span class=muted>Đang đăng nhập: ${e(PHIEN.user.email||'')}</span> <button onclick=dangXuat()>Đăng xuất</button></div>`;return}
+ noiDung.innerHTML=`<h2>Online Team</h2><div class="grid g3"><div class=card><h3>${e(WORKSPACE.name)}</h3><span class=muted>Đội đang làm việc</span></div><div class=card><h3>${e(WORKSPACE.role==='owner'?'Chủ đội':'Nhân viên')}</h3><span class=muted>${e(PHIEN.user.email||'')}</span></div><div class=card><h3>${e(WORKSPACE.join_code)}</h3><span class=muted>Mã mời nhân viên</span></div></div><div class=card style="margin-top:12px"><h3>Dự án hiện tại</h3><b>${e(P.ten)}</b><div class=toolbar>${CLOUD_PROJECT_ID?'<button class=btn onclick=dongBoCloud()>Đồng bộ lên Cloud</button><button onclick=layBanMoiCloud()>Lấy bản Cloud mới nhất</button>':'<button class=btn onclick=taoDuAnCloud()>Đưa dự án hiện tại lên Cloud</button>'}<button onclick=dangXuat()>Đăng xuất</button></div><div class=notice><b>V11:</b> LocalStorage là bản làm việc nhanh; Cloud là bản chia sẻ cho cả đội. Tránh hai người sửa cùng một project cùng lúc để không ghi đè dữ liệu.</div></div><div class=card style="margin-top:12px"><h3>Dự án của đội</h3><div id=cloudProjects></div></div>`;setTimeout(renderDanhSachCloud,0)
+}
+
+/* ===================== V11 TEAM CONTROL ===================== */
+let TEAM_MEMBERS=[], ASSIGN_CACHE={}, LOCK_CACHE={}, VERSION_CACHE=[];
+async function dongBoHoSoThanhVien(){
+  if(!SB||!PHIEN||!WORKSPACE)return;
+  try{await SB.rpc('sync_my_member_profile');}catch(err){console.warn('sync profile',err.message)}
+}
+async function taiTeamControl(){
+  if(!SB||!WORKSPACE||!CLOUD_PROJECT_ID)return;
+  let [m,a,l,v]=await Promise.all([
+    SB.from('workspace_members').select('user_id,role,member_email,display_name').eq('workspace_id',WORKSPACE.id),
+    SB.from('scene_assignments').select('*').eq('project_id',CLOUD_PROJECT_ID),
+    SB.from('scene_locks').select('*').eq('project_id',CLOUD_PROJECT_ID),
+    SB.from('project_versions').select('id,note,created_at,created_by').eq('project_id',CLOUD_PROJECT_ID).order('created_at',{ascending:false}).limit(20)
+  ]);
+  TEAM_MEMBERS=m.data||[];ASSIGN_CACHE={};(a.data||[]).forEach(x=>ASSIGN_CACHE[x.scene_id]=x);
+  LOCK_CACHE={};(l.data||[]).forEach(x=>LOCK_CACHE[x.scene_id]=x);VERSION_CACHE=v.data||[];
+}
+function tenThanhVien(uid){let x=TEAM_MEMBERS.find(m=>m.user_id===uid);return x?.display_name||x?.member_email||uid?.slice(0,8)||'Chưa giao'}
+function duocSuaCanh(sceneId){
+  if(!CLOUD_PROJECT_ID||!PHIEN)return true;
+  let l=LOCK_CACHE[sceneId]; if(!l)return true;
+  if(new Date(l.expires_at)<new Date())return true;
+  return l.locked_by===PHIEN.user.id;
+}
+async function phanCongCanh(sceneId,userId){
+  if(!SB||!WORKSPACE||WORKSPACE.role!=='owner')return alert('Chỉ chủ đội được phân công cảnh.');
+  if(!userId){let {error}=await SB.from('scene_assignments').delete().eq('project_id',CLOUD_PROJECT_ID).eq('scene_id',sceneId);if(error)return alert(error.message)}
+  else{let {error}=await SB.from('scene_assignments').upsert({project_id:CLOUD_PROJECT_ID,scene_id:sceneId,assigned_to:userId,assigned_by:PHIEN.user.id,status:'ĐÃ GIAO'},{onConflict:'project_id,scene_id'});if(error)return alert(error.message)}
+  await taiTeamControl();renderTeamControlBody();
+}
+async function khoaCanhTeam(sceneId){
+  if(!SB||!CLOUD_PROJECT_ID)return alert('Hãy mở một dự án Cloud trước.');
+  let {data,error}=await SB.rpc('acquire_scene_lock',{p_project_id:CLOUD_PROJECT_ID,p_scene_id:sceneId});
+  if(error)return alert(error.message);if(!data)return alert('Cảnh đang được người khác khóa.');
+  await taiTeamControl();renderTeamControlBody();
+}
+async function moKhoaCanhTeam(sceneId){
+  let {error}=await SB.rpc('release_scene_lock',{p_project_id:CLOUD_PROJECT_ID,p_scene_id:sceneId});if(error)return alert(error.message);
+  await taiTeamControl();renderTeamControlBody();
+}
+async function moVaKhoa(sceneId){
+  await khoaCanhTeam(sceneId);await taiTeamControl();
+  let l=LOCK_CACHE[sceneId];if(l&&l.locked_by!==PHIEN.user.id)return;
+  let i=P.canh.findIndex(s=>s.id===sceneId);if(i>=0){chon=i;den('canh')}
+}
+async function taoPhienBanDuAn(){
+  if(!CLOUD_PROJECT_ID)return alert('Chưa có dự án Cloud.');
+  let note=prompt('Ghi chú phiên bản?','Bản trước khi chỉnh sửa')||'Bản thủ công';
+  let {error}=await SB.from('project_versions').insert({project_id:CLOUD_PROJECT_ID,workspace_id:WORKSPACE.id,project_data:P,note,created_by:PHIEN.user.id});
+  if(error)return alert(error.message);await taiTeamControl();renderTeamControlBody();alert('Đã lưu phiên bản dự án.');
+}
+async function phucHoiPhienBan(id){
+  if(!confirm('Nạp phiên bản này vào máy hiện tại? Bản Cloud chỉ đổi sau khi bạn bấm Đồng bộ.'))return;
+  let {data,error}=await SB.from('project_versions').select('project_data,note').eq('id',id).single();if(error)return alert(error.message);
+  P=data.project_data;chon=0;localStorage.setItem(K,JSON.stringify(P));alert('Đã nạp phiên bản: '+(data.note||''));den('tong_quan');
+}
+async function xoaPhienBan(id){
+  if(WORKSPACE.role!=='owner'||!confirm('Xóa phiên bản lịch sử này?'))return;
+  let {error}=await SB.from('project_versions').delete().eq('id',id);if(error)return alert(error.message);await taiTeamControl();renderTeamControlBody();
+}
+function renderTeamControlBody(){
+  let el=document.querySelector('#teamControlBody');if(!el)return;
+  let locks=P.canh.filter(s=>LOCK_CACHE[s.id]).length, assigned=P.canh.filter(s=>ASSIGN_CACHE[s.id]).length;
+  el.innerHTML=`<div class="grid g4"><div class=card><h3>${TEAM_MEMBERS.length}</h3><span class=muted>Thành viên</span></div><div class=card><h3>${P.canh.length}</h3><span class=muted>Cảnh</span></div><div class=card><h3>${assigned}</h3><span class=muted>Đã phân công</span></div><div class=card><h3>${locks}</h3><span class=muted>Đang khóa</span></div></div>
+  <div class=card style="margin-top:12px"><div class=row><h3>Phân công cảnh</h3><div class=toolbar><button onclick=taiVaVeTeam()>Làm mới</button><button class=btn onclick=taoPhienBanDuAn()>Lưu phiên bản hiện tại</button></div></div>
+  <table class=table><thead><tr><th>Cảnh</th><th>Sequence</th><th>Trạng thái</th><th>Người phụ trách</th><th>Khóa chỉnh sửa</th><th>Thao tác</th></tr></thead><tbody>${P.canh.map(s=>{let a=ASSIGN_CACHE[s.id],l=LOCK_CACHE[s.id],mine=l?.locked_by===PHIEN.user.id,expired=l&&new Date(l.expires_at)<new Date();return `<tr><td><b>${s.id}</b><br><span class=muted>${e(s.tieuDe)}</span></td><td>${e(s.nhom||'')}</td><td>${e(s.trangThai)}</td><td>${WORKSPACE.role==='owner'?`<select onchange="phanCongCanh('${s.id}',this.value)"><option value="">— Chưa giao —</option>${TEAM_MEMBERS.map(m=>`<option value="${m.user_id}" ${a?.assigned_to===m.user_id?'selected':''}>${e(tenThanhVien(m.user_id))}</option>`).join('')}</select>`:e(a?tenThanhVien(a.assigned_to):'Chưa giao')}</td><td>${!l||expired?'<span class="pill good">RẢNH</span>':mine?'<span class="pill warn">BẠN ĐANG KHÓA</span>':`<span class="pill bad">${e(tenThanhVien(l.locked_by))} đang sửa</span>`}</td><td>${(!l||expired)?`<button onclick="moVaKhoa('${s.id}')">Mở & khóa</button>`:mine?`<button class=btn onclick="chon=${P.canh.indexOf(s)};den('canh')">Tiếp tục sửa</button><button onclick="moKhoaCanhTeam('${s.id}')">Mở khóa</button>`:'<button disabled>Đang bị khóa</button>'}</td></tr>`}).join('')}</tbody></table></div>
+  <div class=card style="margin-top:12px"><h3>Lịch sử phiên bản</h3>${VERSION_CACHE.length?VERSION_CACHE.map(v=>`<div class=state-card><div class=row><div><b>${e(v.note||'Phiên bản')}</b><br><span class=muted>${new Date(v.created_at).toLocaleString('vi-VN')} · ${e(tenThanhVien(v.created_by))}</span></div><div class=toolbar><button onclick="phucHoiPhienBan('${v.id}')">Nạp lại</button>${WORKSPACE.role==='owner'?`<button onclick="xoaPhienBan('${v.id}')">Xóa</button>`:''}</div></div></div>`).join(''):'<span class=muted>Chưa có phiên bản thủ công.</span>'}</div>
+  <div class=notice style="margin-top:12px"><b>V11 chống ghi đè:</b> Nhân viên nên dùng “Mở & khóa” trước khi sửa cảnh. Khóa tự hết hạn sau 2 giờ. Chủ đội phân công cảnh và có thể lưu phiên bản trước các thay đổi lớn.</div>`;
+}
+async function taiVaVeTeam(){await taiTeamControl();renderTeamControlBody()}
+function teamControl(){
+  if(!SUPABASE_READY||!PHIEN||!WORKSPACE){noiDung.innerHTML='<h2>Phân công & khóa cảnh</h2><div class=card>Hãy vào <b>Online Team</b> để đăng nhập và tham gia đội trước.</div>';return}
+  if(!CLOUD_PROJECT_ID){noiDung.innerHTML='<h2>Phân công & khóa cảnh</h2><div class=card>Hãy mở hoặc đưa dự án hiện tại lên Cloud trước.</div>';return}
+  noiDung.innerHTML='<h2>Phân công & khóa cảnh</h2><div id=teamControlBody><span class=muted>Đang tải dữ liệu đội...</span></div>';setTimeout(taiVaVeTeam,0)
+}
+/* ============================================================ */
+
+khoiTaoOnline();
+/* =========================================================== */
+nav();ve();
+</script></body></html>
