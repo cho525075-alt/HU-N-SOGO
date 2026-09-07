@@ -62,7 +62,7 @@ const mauDuAn={
  ten:'7 NGÀY TRƯỚC KHI LY HÔN',theLoai:'drama_gia_dinh',tiLe:'9:16',thoiLuongCanh:8,soCanhMucTieu:24,ngonNgu:'Tiếng Việt',story:'',
  cheDoLo:'theo_chuoi',soLuongSongSong:3,
  voice:{ngonNgu:'Tiếng Việt',vungMien:'Miền Bắc',tocDo:'1.0',hangDoi:[],khoaGiong:{}}, 
- hinhAnh:{cheDo:'ngoai_tuyen',nhaCungCap:'Chưa kết nối',tiLeMacDinh:'9:16',hangDoi:[],khoa:{nhanVat:{},boiCanh:{},trangPhuc:{},daoCu:{}},phienBanAnh:{}},
+ hinhAnh:{cheDo:'online_ai',nhaCungCap:'OpenAI GPT Image',tiLeMacDinh:'9:16',hangDoi:[],khoa:{nhanVat:{},boiCanh:{},trangPhuc:{},daoCu:{}},phienBanAnh:{}},
  taiSan:{nhanVat:[{id:'NGHIA',ten:'Nghĩa',moTa:'Nam 34 tuổi, tóc đen ngắn, khuôn mặt chữ điền'},{id:'TRANG',ten:'Trang',moTa:'Nữ 32 tuổi, khuôn mặt trái xoan'}],
  boiCanh:[{id:'HOME_NT_01',ten:'Phòng khách nhà Nghĩa–Trang',moTa:'Sofa trái, bàn trà giữa, TV phía trước'}],
  trangPhuc:[{id:'NGHIA_HOME_01',ten:'Nghĩa · ở nhà',nhanVatId:'NGHIA',moTa:'Trang phục ở nhà'}],
@@ -154,10 +154,10 @@ function themVaoHangDoiAnh(){
   if(!ref)return alert('Hãy chọn Đối tượng / cảnh trước khi tạo tác vụ ảnh.');
   if(!prompt)return alert('Chưa có câu lệnh hình ảnh.');
   let id='IMG_'+String((P.hinhAnh?.hangDoi?.length||0)+1).padStart(3,'0');
-  P.hinhAnh=P.hinhAnh||{cheDo:'ngoai_tuyen',nhaCungCap:'Chưa kết nối',tiLeMacDinh:P.tiLe,hangDoi:[]};
+  P.hinhAnh=P.hinhAnh||{cheDo:'online_ai',nhaCungCap:'OpenAI GPT Image',tiLeMacDinh:P.tiLe,hangDoi:[]};
   let tiLe=tiLeAnhDangChon();
   P.hinhAnh.tiLeMacDinh=tiLe;
-  P.hinhAnh.hangDoi.push({id,loai,ref,tiLe,prompt,trangThai:'CHỜ TẠO',anhData:'',ghiChu:'',createdAt:new Date().toISOString()});
+  P.hinhAnh.hangDoi.push({id,loai,ref,tiLe,prompt,chatLuong:chatLuongAnhDangChon(),nen:nenAnhDangChon(),trangThai:'CHỜ TẠO',anhData:'',ghiChu:'',loi:'',createdAt:new Date().toISOString()});
   luu();ve();
 }
 function capNhatPromptAnh(){
@@ -201,7 +201,7 @@ function saoChepPrompt(i){
 }
 function taoHangLoatKeyframe(){
   if(!P.canh.length)return alert('Chưa có cảnh.');
-  P.hinhAnh=P.hinhAnh||{cheDo:'ngoai_tuyen',nhaCungCap:'Chưa kết nối',tiLeMacDinh:P.tiLe,hangDoi:[]};
+  P.hinhAnh=P.hinhAnh||{cheDo:'online_ai',nhaCungCap:'OpenAI GPT Image',tiLeMacDinh:P.tiLe,hangDoi:[]};
   let existing=new Set(P.hinhAnh.hangDoi.filter(x=>x.loai==='keyframe').map(x=>x.ref));
   for(let s of P.canh){
     if(existing.has(s.id))continue;
@@ -211,8 +211,80 @@ function taoHangLoatKeyframe(){
   }
   luu();ve();
 }
+
+let IMAGE_API_OK=false;
+
+async function kiemTraImageAPI(){
+  try{
+    const r=await fetch('/api/image-health');
+    const j=await r.json();
+    IMAGE_API_OK=!!(r.ok&&j.ok);
+  }catch(_){IMAGE_API_OK=false}
+  if(trang==='hinh_anh') ve();
+}
+
+function chatLuongAnhDangChon(){
+  return document.querySelector('#chatLuongAnh')?.value||'medium';
+}
+function nenAnhDangChon(){
+  return document.querySelector('#nenAnh')?.value||'auto';
+}
+async function taoAnhAI(i){
+  let j=P.hinhAnh.hangDoi[i];
+  if(!j)return;
+  if(!IMAGE_API_OK)return alert('Backend tạo ảnh AI chưa sẵn sàng. Hãy kiểm tra OPENAI_API_KEY trên Vercel.');
+  j.trangThai='ĐANG TẠO';
+  j.loi='';
+  luu();ve();
+  try{
+    const r=await fetch('/api/generate-image',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        prompt:j.prompt,
+        aspectRatio:j.tiLe||P.hinhAnh?.tiLeMacDinh||P.tiLe||'9:16',
+        quality:j.chatLuong||'medium',
+        background:j.nen||'auto'
+      })
+    });
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Không tạo được ảnh');
+    j.anhData=data.image;
+    j.trangThai='ĐÃ CÓ ẢNH';
+    j.model=data.model||'';
+    j.size=data.size||'';
+    j.generatedAt=new Date().toISOString();
+    j.loi='';
+    luu();ve();
+  }catch(err){
+    j.trangThai='THẤT BẠI';
+    j.loi=err.message||String(err);
+    luu();ve();
+    alert('Tạo ảnh thất bại: '+j.loi);
+  }
+}
+async function taoTatCaAnhCho(){
+  if(!IMAGE_API_OK)return alert('Backend tạo ảnh AI chưa sẵn sàng.');
+  let ds=P.hinhAnh.hangDoi.map((x,i)=>({x,i})).filter(o=>o.x.trangThai==='CHỜ TẠO'||o.x.trangThai==='THẤT BẠI');
+  if(!ds.length)return alert('Không có tác vụ ảnh nào đang chờ.');
+  for(let o of ds) await taoAnhAI(o.i);
+  alert('Đã xử lý hết hàng đợi ảnh.');
+}
+function themVaTaoNgay(){
+  let before=P.hinhAnh?.hangDoi?.length||0;
+  themVaoHangDoiAnh();
+  let after=P.hinhAnh?.hangDoi?.length||0;
+  if(after>before){
+    let i=after-1;
+    P.hinhAnh.hangDoi[i].chatLuong=chatLuongAnhDangChon();
+    P.hinhAnh.hangDoi[i].nen=nenAnhDangChon();
+    luu();
+    taoAnhAI(i);
+  }
+}
+
 function studioHinhAnh(){
-  P.hinhAnh=P.hinhAnh||{cheDo:'ngoai_tuyen',nhaCungCap:'Chưa kết nối',tiLeMacDinh:P.tiLe,hangDoi:[]};
+  P.hinhAnh=P.hinhAnh||{cheDo:'online_ai',nhaCungCap:'OpenAI GPT Image',tiLeMacDinh:P.tiLe,hangDoi:[]};
   let q=P.hinhAnh.hangDoi||[];
   P.hinhAnh.tiLeMacDinh=P.hinhAnh.tiLeMacDinh||P.tiLe||'9:16';
   q.forEach(x=>{if(!x.tiLe)x.tiLe=P.hinhAnh.tiLeMacDinh});
@@ -235,13 +307,19 @@ function studioHinhAnh(){
       <div><label>Đối tượng / cảnh</label><select id=refAnh onchange="doiRefAnh()"></select></div>
       <div><label>Tỷ lệ khung hình ảnh</label><select id=tiLeAnh onchange="doiTiLeAnh()">${optionTiLe(P.hinhAnh?.tiLeMacDinh||P.tiLe)}</select></div>
     </div>
+    <div class="grid g2" style="margin-top:10px">
+      <div><label>Chất lượng AI</label><select id=chatLuongAnh><option value=low>Thấp · nhanh/tiết kiệm</option><option value=medium selected>Trung bình</option><option value=high>Cao</option></select></div>
+      <div><label>Nền ảnh</label><select id=nenAnh><option value=auto>Tự động</option><option value=transparent>Trong suốt</option><option value=opaque>Nền kín</option></select></div>
+    </div>
     <label>Câu lệnh tạo hình ảnh</label>
     <textarea id=promptAnh style="min-height:180px"></textarea>
     <div class=toolbar>
-      <button class=btn onclick="themVaoHangDoiAnh()">+ Thêm vào hàng đợi ảnh</button>
+      <button onclick="themVaoHangDoiAnh()">+ Thêm vào hàng đợi ảnh</button>
+      <button class=btn onclick="themVaTaoNgay()">✨ Tạo ảnh AI ngay</button>
       <button onclick="taoHangLoatKeyframe()">Tạo tác vụ keyframe cho toàn bộ cảnh</button>
+      <button onclick="taoTatCaAnhCho()">⚡ Tạo toàn bộ ảnh đang chờ</button>
     </div>
-    <div class=notice><b>Chế độ hiện tại:</b> Offline. Tool đang quản lý prompt + reference + hàng đợi ảnh. Khi đưa online, nút tạo ảnh sẽ nối API tạo hình ảnh và trả ảnh trực tiếp vào từng tác vụ.</div>
+    <div class=notice><b>Trạng thái AI hình ảnh:</b> ${IMAGE_API_OK?'<span class=good>ĐÃ KẾT NỐI</span>':'<span class=warn>CHƯA KẾT NỐI</span>'}. API key chỉ nằm trên Vercel server, không nằm trong trình duyệt.</div>
   </div>
   <div class=card style="margin-top:12px">
     <h3>Hàng đợi hình ảnh</h3>
@@ -249,8 +327,11 @@ function studioHinhAnh(){
       <div class=row><b>${e(x.id)}</b><span class=pill>${e(x.trangThai)}</span><span class=muted>${e(x.loai)} · ${e(x.ref)} · Tỷ lệ ${e(x.tiLe||P.hinhAnh?.tiLeMacDinh||P.tiLe)}</span></div>
       ${x.anhData?`<img src="${x.anhData}" style="max-width:180px;max-height:240px;border-radius:8px;border:1px solid var(--line);margin:10px 0;object-fit:cover">`:''}
       <pre>${e(x.prompt)}</pre>
+      ${x.loi?`<div class="state-card bad">Lỗi: ${e(x.loi)}</div>`:''}
+      ${x.model?`<div class=muted>AI: ${e(x.model)}${x.size?' · '+e(x.size):''}</div>`:''}
       <div class=toolbar>
         <button onclick="saoChepPrompt(${i})">Sao chép câu lệnh</button>
+        <button class=btn onclick="taoAnhAI(${i})">${x.trangThai==='ĐANG TẠO'?'Đang tạo...':'✨ Tạo ảnh AI'}</button>
         <label class="btn" style="display:inline-block">Tải ảnh kết quả vào<input type=file accept="image/*" hidden onchange="taiAnhMau(${i},event)"></label>
         ${x.anhData?`<button onclick="duyetAnh(${i})">Duyệt ảnh</button>`:''}${x.trangThai==='ĐÃ DUYỆT'&&x.loai!=='keyframe'?`<button onclick="(function(){let m={nhan_vat:'nhanVat',boi_canh:'boiCanh',trang_phuc:'trangPhuc',dao_cu:'daoCu'};khoaAnh(m['${x.loai}'],'${x.ref}','${x.id}')})()">Khóa làm ảnh tham chiếu</button>`:''}
         <button onclick="taoLaiAnh(${i})">Đánh dấu tạo lại</button>
@@ -262,7 +343,7 @@ function studioHinhAnh(){
 }
 
 function damBaoCauTrucAnh(){
-  P.hinhAnh=P.hinhAnh||{cheDo:'ngoai_tuyen',nhaCungCap:'Chưa kết nối',tiLeMacDinh:P.tiLe,hangDoi:[],khoa:{nhanVat:{},boiCanh:{},trangPhuc:{},daoCu:{}},phienBanAnh:{}};
+  P.hinhAnh=P.hinhAnh||{cheDo:'online_ai',nhaCungCap:'OpenAI GPT Image',tiLeMacDinh:P.tiLe,hangDoi:[],khoa:{nhanVat:{},boiCanh:{},trangPhuc:{},daoCu:{}},phienBanAnh:{}};
   P.hinhAnh.khoa=P.hinhAnh.khoa||{nhanVat:{},boiCanh:{},trangPhuc:{},daoCu:{}};
   P.hinhAnh.phienBanAnh=P.hinhAnh.phienBanAnh||{};
 }
@@ -582,5 +663,5 @@ function teamControl(){
 
 khoiTaoOnline();
 /* =========================================================== */
-nav();ve();
+nav();ve();setTimeout(kiemTraImageAPI,300);
 </script></body></html>
