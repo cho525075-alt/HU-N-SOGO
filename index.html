@@ -154,10 +154,10 @@ function themVaoHangDoiAnh(){
   if(!ref)return alert('Hãy chọn Đối tượng / cảnh trước khi tạo tác vụ ảnh.');
   if(!prompt)return alert('Chưa có câu lệnh hình ảnh.');
   let id='IMG_'+String((P.hinhAnh?.hangDoi?.length||0)+1).padStart(3,'0');
-  P.hinhAnh=P.hinhAnh||{cheDo:'online_ai',nhaCungCap:'OpenAI GPT Image',tiLeMacDinh:P.tiLe,hangDoi:[]};
+  P.hinhAnh=P.hinhAnh||{cheDo:'online_ai',nhaCungCap:'Multi Provider',nhaCungCapMacDinh:'google',tiLeMacDinh:P.tiLe,hangDoi:[]};
   let tiLe=tiLeAnhDangChon();
   P.hinhAnh.tiLeMacDinh=tiLe;
-  P.hinhAnh.hangDoi.push({id,loai,ref,tiLe,prompt,chatLuong:chatLuongAnhDangChon(),nen:nenAnhDangChon(),trangThai:'CHỜ TẠO',anhData:'',ghiChu:'',loi:'',createdAt:new Date().toISOString()});
+  P.hinhAnh.hangDoi.push({id,loai,ref,tiLe,prompt,provider:nhaCungCapAnhDangChon(),modelChon:modelAnhDangChon(),chatLuong:chatLuongAnhDangChon(),nen:nenAnhDangChon(),trangThai:'CHỜ TẠO',anhData:'',ghiChu:'',loi:'',createdAt:new Date().toISOString()});
   luu();ve();
 }
 function capNhatPromptAnh(){
@@ -201,7 +201,7 @@ function saoChepPrompt(i){
 }
 function taoHangLoatKeyframe(){
   if(!P.canh.length)return alert('Chưa có cảnh.');
-  P.hinhAnh=P.hinhAnh||{cheDo:'online_ai',nhaCungCap:'OpenAI GPT Image',tiLeMacDinh:P.tiLe,hangDoi:[]};
+  P.hinhAnh=P.hinhAnh||{cheDo:'online_ai',nhaCungCap:'Multi Provider',nhaCungCapMacDinh:'google',tiLeMacDinh:P.tiLe,hangDoi:[]};
   let existing=new Set(P.hinhAnh.hangDoi.filter(x=>x.loai==='keyframe').map(x=>x.ref));
   for(let s of P.canh){
     if(existing.has(s.id))continue;
@@ -213,16 +213,34 @@ function taoHangLoatKeyframe(){
 }
 
 let IMAGE_API_OK=false;
+let IMAGE_PROVIDERS={openai:false,google:false};
 
 async function kiemTraImageAPI(){
   try{
     const r=await fetch('/api/image-health');
     const j=await r.json();
     IMAGE_API_OK=!!(r.ok&&j.ok);
+    IMAGE_PROVIDERS=j.providers||{openai:false,google:false};
   }catch(_){IMAGE_API_OK=false}
   if(trang==='hinh_anh') ve();
 }
 
+function nhaCungCapAnhDangChon(){
+  return document.querySelector('#nhaCungCapAnh')?.value||P.hinhAnh?.nhaCungCapMacDinh||'google';
+}
+function modelAnhDangChon(){
+  return document.querySelector('#modelAnh')?.value||'auto';
+}
+function capNhatModelAnh(){
+  const provider=nhaCungCapAnhDangChon();
+  const el=document.querySelector('#modelAnh');
+  if(!el)return;
+  if(provider==='google'){
+    el.innerHTML='<option value="auto">Tự động · khuyên dùng</option><option value="gemini-3.1-flash-lite-image">Nano Banana 2 Lite · tiết kiệm</option><option value="gemini-3.1-flash-image">Nano Banana 2 · cân bằng</option><option value="gemini-3-pro-image">Nano Banana Pro · cao cấp</option>';
+  }else{
+    el.innerHTML='<option value="auto">Tự động</option><option value="gpt-image-2">GPT Image 2</option><option value="gpt-image-1-mini">GPT Image 1 Mini · tiết kiệm</option>';
+  }
+}
 function chatLuongAnhDangChon(){
   return document.querySelector('#chatLuongAnh')?.value||'medium';
 }
@@ -232,7 +250,7 @@ function nenAnhDangChon(){
 async function taoAnhAI(i){
   let j=P.hinhAnh.hangDoi[i];
   if(!j)return;
-  if(!IMAGE_API_OK)return alert('Backend tạo ảnh AI chưa sẵn sàng. Hãy kiểm tra OPENAI_API_KEY trên Vercel.');
+  if(!IMAGE_API_OK)return alert('Backend tạo ảnh AI chưa sẵn sàng. Hãy cấu hình OPENAI_API_KEY hoặc GEMINI_API_KEY trên Vercel.');
   j.trangThai='ĐANG TẠO';
   j.loi='';
   luu();ve();
@@ -244,7 +262,9 @@ async function taoAnhAI(i){
         prompt:j.prompt,
         aspectRatio:j.tiLe||P.hinhAnh?.tiLeMacDinh||P.tiLe||'9:16',
         quality:j.chatLuong||'medium',
-        background:j.nen||'auto'
+        background:j.nen||'auto',
+        provider:j.provider||nhaCungCapAnhDangChon(),
+        model:j.modelChon||modelAnhDangChon()
       })
     });
     const data=await r.json();
@@ -252,7 +272,8 @@ async function taoAnhAI(i){
     j.anhData=data.image;
     j.trangThai='ĐÃ CÓ ẢNH';
     j.model=data.model||'';
-    j.size=data.size||'';
+    j.provider=data.provider||j.provider||'';
+    j.size=data.size||data.aspectRatio||'';
     j.generatedAt=new Date().toISOString();
     j.loi='';
     luu();ve();
@@ -264,7 +285,7 @@ async function taoAnhAI(i){
   }
 }
 async function taoTatCaAnhCho(){
-  if(!IMAGE_API_OK)return alert('Backend tạo ảnh AI chưa sẵn sàng.');
+  if(!IMAGE_API_OK)return alert('Backend tạo ảnh AI chưa sẵn sàng. Hãy thêm ít nhất một API key trên Vercel.');
   let ds=P.hinhAnh.hangDoi.map((x,i)=>({x,i})).filter(o=>o.x.trangThai==='CHỜ TẠO'||o.x.trangThai==='THẤT BẠI');
   if(!ds.length)return alert('Không có tác vụ ảnh nào đang chờ.');
   for(let o of ds) await taoAnhAI(o.i);
@@ -278,13 +299,15 @@ function themVaTaoNgay(){
     let i=after-1;
     P.hinhAnh.hangDoi[i].chatLuong=chatLuongAnhDangChon();
     P.hinhAnh.hangDoi[i].nen=nenAnhDangChon();
+    P.hinhAnh.hangDoi[i].provider=nhaCungCapAnhDangChon();
+    P.hinhAnh.hangDoi[i].modelChon=modelAnhDangChon();
     luu();
     taoAnhAI(i);
   }
 }
 
 function studioHinhAnh(){
-  P.hinhAnh=P.hinhAnh||{cheDo:'online_ai',nhaCungCap:'OpenAI GPT Image',tiLeMacDinh:P.tiLe,hangDoi:[]};
+  P.hinhAnh=P.hinhAnh||{cheDo:'online_ai',nhaCungCap:'Multi Provider',nhaCungCapMacDinh:'google',tiLeMacDinh:P.tiLe,hangDoi:[]};
   let q=P.hinhAnh.hangDoi||[];
   P.hinhAnh.tiLeMacDinh=P.hinhAnh.tiLeMacDinh||P.tiLe||'9:16';
   q.forEach(x=>{if(!x.tiLe)x.tiLe=P.hinhAnh.tiLeMacDinh});
@@ -308,6 +331,10 @@ function studioHinhAnh(){
       <div><label>Tỷ lệ khung hình ảnh</label><select id=tiLeAnh onchange="doiTiLeAnh()">${optionTiLe(P.hinhAnh?.tiLeMacDinh||P.tiLe)}</select></div>
     </div>
     <div class="grid g2" style="margin-top:10px">
+      <div><label>Nhà cung cấp AI</label><select id=nhaCungCapAnh onchange="capNhatModelAnh()"><option value=google>Google Gemini Image</option><option value=openai>OpenAI GPT Image</option></select></div>
+      <div><label>Model ảnh</label><select id=modelAnh></select></div>
+    </div>
+    <div class="grid g2" style="margin-top:10px">
       <div><label>Chất lượng AI</label><select id=chatLuongAnh><option value=low>Thấp · nhanh/tiết kiệm</option><option value=medium selected>Trung bình</option><option value=high>Cao</option></select></div>
       <div><label>Nền ảnh</label><select id=nenAnh><option value=auto>Tự động</option><option value=transparent>Trong suốt</option><option value=opaque>Nền kín</option></select></div>
     </div>
@@ -319,7 +346,7 @@ function studioHinhAnh(){
       <button onclick="taoHangLoatKeyframe()">Tạo tác vụ keyframe cho toàn bộ cảnh</button>
       <button onclick="taoTatCaAnhCho()">⚡ Tạo toàn bộ ảnh đang chờ</button>
     </div>
-    <div class=notice><b>Trạng thái AI hình ảnh:</b> ${IMAGE_API_OK?'<span class=good>ĐÃ KẾT NỐI</span>':'<span class=warn>CHƯA KẾT NỐI</span>'}. API key chỉ nằm trên Vercel server, không nằm trong trình duyệt.</div>
+    <div class=notice><b>Trạng thái AI hình ảnh:</b> Google ${IMAGE_PROVIDERS.google?'<span class=good>ĐÃ KẾT NỐI</span>':'<span class=warn>CHƯA KẾT NỐI</span>'} · OpenAI ${IMAGE_PROVIDERS.openai?'<span class=good>ĐÃ KẾT NỐI</span>':'<span class=warn>CHƯA KẾT NỐI</span>'}. API key chỉ nằm trên Vercel server.</div>
   </div>
   <div class=card style="margin-top:12px">
     <h3>Hàng đợi hình ảnh</h3>
@@ -328,7 +355,7 @@ function studioHinhAnh(){
       ${x.anhData?`<img src="${x.anhData}" style="max-width:180px;max-height:240px;border-radius:8px;border:1px solid var(--line);margin:10px 0;object-fit:cover">`:''}
       <pre>${e(x.prompt)}</pre>
       ${x.loi?`<div class="state-card bad">Lỗi: ${e(x.loi)}</div>`:''}
-      ${x.model?`<div class=muted>AI: ${e(x.model)}${x.size?' · '+e(x.size):''}</div>`:''}
+      ${x.model?`<div class=muted>AI: ${e(x.provider||'')} · ${e(x.model)}${x.size?' · '+e(x.size):''}</div>`:''}
       <div class=toolbar>
         <button onclick="saoChepPrompt(${i})">Sao chép câu lệnh</button>
         <button class=btn onclick="taoAnhAI(${i})">${x.trangThai==='ĐANG TẠO'?'Đang tạo...':'✨ Tạo ảnh AI'}</button>
@@ -339,7 +366,7 @@ function studioHinhAnh(){
       </div>
     </div>`).join(''):'<span class=muted>Chưa có tác vụ hình ảnh.</span>'}
   </div>`;
-  setTimeout(capNhatPromptAnh,0);
+  setTimeout(()=>{capNhatPromptAnh();capNhatModelAnh()},0);
 }
 
 function damBaoCauTrucAnh(){
